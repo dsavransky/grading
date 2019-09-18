@@ -1,5 +1,7 @@
 """
-Grader:
+Parse MATLAB Grader output and upload to Canvas
+
+In Grader:
 - In assignment main page: Actions>Report
    - Best solution as of today
    - Output:csv

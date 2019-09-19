@@ -1,11 +1,9 @@
 import pandas
 import numpy as np
-import argparse
 import getpass,keyring
 import time
 from datetime import datetime, timedelta
 import pytz
-from dateutil import parser
 from canvasapi import Canvas 
 from canvasapi.exceptions import InvalidAccessToken 
 import requests

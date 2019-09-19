@@ -235,6 +235,9 @@ class cornellGrading():
         Notes:
             In assignment main page: Actions>Report. 
             Choose 'Best solution as of today', Output:csv
+
+            NB: We are assuming that the timezone on your machine matches the timezone of
+            the grader submitted time column.  If there is a mismatch, there will be errors.
         """
 
         
@@ -250,12 +253,20 @@ class cornellGrading():
         #process grader output
         grader = pandas.read_csv(gradercsv)
         
+        #on windows, EDT/EST aren't in time.tzname, so we're going to
+        #parse the grader timestring manually and then force localization
+        timep = re.compile('(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) \S*')
+        timetmp = []
+        for t in grader['Submitted Time']:
+            tmp = timep.match(t)
+            timetmp.append(self.localizeTime(tmp.groups()[0],duetime=tmp.groups()[1]))
+
 
         emails = grader['Student Email'].values
         testspassed = grader['Tests Passed'].values.astype(float)
         tottests = grader['Total Tests'].values.astype(float)
         probs = grader['Problem Title'].values
-        subtimes = np.array([(duedate - parser.parse(t).astimezone(pytz.utc)).total_seconds() for t in grader['Submitted Time']])
+        subtimes = np.array([(duedate - t).total_seconds() for t in timetmp])
         islate = grader['Late Submission?'].values == 'Y'
 
         uprobs = np.unique(probs)

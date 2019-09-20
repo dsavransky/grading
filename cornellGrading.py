@@ -65,14 +65,21 @@ class cornellGrading():
 
         #get the course
         course = self.canvas.get_course(coursenum)
-        tmp = course.get_users() 
+        tmp = course.get_users(include=["enrollments"]) 
         names = []
         ids = []
         netids = []
         for t in tmp:
-            names.append(t.sortable_name)
-            ids.append(t.id)
-            netids.append(t.login_id)
+            isstudent=False
+            for e in t.enrollments:
+                if e['course_id'] == coursenum:
+                    isstudent = e['role'] == 'StudentEnrollment'
+
+            if isstudent:
+                names.append(t.sortable_name)
+                ids.append(t.id)
+                netids.append(t.login_id)
+
         names = np.array(names)
         ids = np.array(ids)
         netids = np.array(netids)
@@ -432,6 +439,102 @@ class cornellGrading():
         assert surveyid, "Couldn't find survey for this assignment."
 
         return surveyid
+
+
+
+    def listMailingLists(self):
+        """ Grab all available Qualtrics mailing lists
+
+        Args:
+            None
+
+        Returns:
+            requests.models.Response
+                
+        """
+
+        baseUrl = "https://{0}.qualtrics.com/API/v3/mailinglists".format(self.dataCenter)
+        headers = {
+            "x-api-token": self.apiToken,
+            }
+        response = requests.get(baseUrl, headers=headers)
+
+        return response
+
+
+    def getMailingListId(self,listname):
+        """ Find qualtrics mailinglist id by name.  Matching is exact.
+
+        Args:
+            listname (str):
+                Exact text of list name
+
+        Returns:
+            str:
+                Unique list id
+                
+        """
+
+        res = self.listMailingLists()
+        mailinglistid = None
+        for el in res.json()['result']['elements']:
+            if el['name'] == listname:
+                mailinglistid = el['id']
+                break
+        assert mailinglistid, "Couldn't find this mailing list."
+
+        return mailinglistid
+
+
+    def genMailingListcsv(self,outfile='mailingListUpload.csv'):
+        """ Generated csv with names and 
+
+        Args:
+            listname (str):
+                Exact text of list name
+
+        Returns:
+            str:
+                Unique list id
+                
+        """
+
+        
+        names = np.array([n.split(", ") for n in self.names])
+        emails = np.array([nid+'@cornell.edu' for nid in self.netids])
+        out = {'FirstName':names[:,1],'LastName':names[:,0],'PrimaryEmail':emails}
+
+        out = pandas.DataFrame(out)
+
+        out.to_csv(outfile,encoding="utf-8",index=False)
+
+
+    def genDistribution(self,surveyId,mailingListId):
+
+
+        baseUrl = "https://{0}.qualtrics.com/API/v3/distributions".format(self.dataCenter)
+        headers = {
+            "x-api-token": self.apiToken,
+            "content-type": "application/json",
+            "Accept": "application/json"
+        }
+
+        data = {"surveyId": surveyId,
+                "linkType": "Individual",
+                "description": "distribution %s"%datetime.now().strftime('%Y-%m-%dT%H:%M:%S%Z'),
+                "action": "CreateDistribution",
+                "mailingListId": mailingListId}
+
+        response = requests.post(baseUrl, json=data, headers=headers)
+        assert response.status_code == 200
+
+
+        distributionId = response.json()['result']['id'] 
+
+        baseUrl2 = "https://{0}.qualtrics.com/API/v3/distributions/{1}/links?surveyId={2}".format(self.dataCenter,distributionId,surveyId)
+        response2 = requests.get(baseUrl2, headers=headers)
+
+        return response2.json()['result']['elements']
 
 
     def exportSurvey(self,surveyId, fileFormat="csv"):

@@ -65,7 +65,7 @@ class cornellGrading():
 
         #get the course
         course = self.canvas.get_course(coursenum)
-        tmp = course.get_users(include=["enrollments"]) 
+        tmp = course.get_users(include=["enrollments","test_student"]) 
         names = []
         ids = []
         netids = []
@@ -551,13 +551,18 @@ class cornellGrading():
         firstNames = names[:,1]
         lastNames = names[:,0]
 
-
         missing = list(set(emails) - set(listemails))
         if missing:
             for m in missing:
                 ind = emails == m
-                self.addListContact(mailingListId,firstNames[ind],lastNames[ind],m)
+                self.addListContact(mailingListId,firstNames[ind][0],lastNames[ind][0],m)
 
+        extra = list(set(listemails) - set(emails))
+        if extra:
+            for e in extra:
+                response = requests.delete("https://{0}.qualtrics.com/API/v3/mailinglists/{1}/contacts/{2}"\
+                        .format(self.dataCenter,mailingListId, np.array(listids)[np.array(listemails) == e][0]), headers=headers)
+                assert response.status_code == 200,"Could not remove contact from list."
 
 
 

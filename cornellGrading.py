@@ -170,6 +170,7 @@ class cornellGrading():
 
     def createAssignment(self,name,groupid,submission_types=["none"],\
                          points_possible=10,published=True,description=None,\
+                         allowed_extensions = None,\
                          due_at = None, unlock_at = None):
         """ Create an assignment
     
@@ -182,7 +183,7 @@ class cornellGrading():
             submission_types (list):
                 See canvas API. Defaults to None.
             points_possible (int):
-                duh
+                duh. If 0, will set grading_type to 'not_graded'.
             published (bool):
                 duh (defaults True)
             description (str):
@@ -202,6 +203,9 @@ class cornellGrading():
 
 
         assert isinstance(submission_types,list),"submission_types must be a list."
+        if allowed_extensions:
+            assert isinstance(allowed_extensions,list),"allowed_extensions must be a list."
+
 
         #create payload
         assignment = {'name':name,
@@ -209,6 +213,9 @@ class cornellGrading():
                       'points_possible':points_possible,
                       'assignment_group_id':groupid,
                       'published':published}
+
+        if points_possible == 0:
+            assignment['grading_type'] = 'not_graded'
 
         if description:
             assignment['description'] = description
@@ -218,6 +225,9 @@ class cornellGrading():
 
         if unlock_at:
             assignment['unlock_at'] = unlock_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        if allowed_extensions:
+            assignment['allowed_extensions'] = allowed_extensions
 
         res = self.course.create_assignment(assignment=assignment)
 
@@ -240,6 +250,8 @@ class cornellGrading():
         Notes:
             In assignment main page: Actions>Report. 
             Choose 'Best solution as of today', Output:csv
+
+            If anyone was allowed a late submission, change the Late column entry to 'N'.
 
             NB: We are assuming that the timezone on your machine matches the timezone of
             the grader submitted time column.  If there is a mismatch, there will be errors.
@@ -920,6 +932,45 @@ class cornellGrading():
         return link
 
 
+    def setupHW(self,assignmentNum,duedate,nprobs):
+        """ Create qualtrics self-grading survey and Canvas column for 
+        a homework.
+
+        Args:
+            assignmentNum (int):
+                Number of assignment. Name of survey will be 
+                "self.coursename HW# Self-Grade"
+                Name of assignment will be HW# Self-Grading
+            duedate (str):
+                Due date in format: YYYY-MM-DD (5pm assumed local time)
+            nprobs (int):
+                Number of howmework problems
+        Returns:
+            None
+
+        Notes:
+            Note that this does not embed the solutions - still need to do that manually.
+
+        """
+
+        duedate = self.localizeTime(duedate) 
+
+        surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
+        assname = "HW%d Self-Grading"%assignmentNum
+
+        link = self.genHWSurvey(surveyname, nprobs)
+
+        sg = self.getAssignmentGroup("Homework Self-Grading")
+        
+        desc = """<p>Solutions: </p>
+                  <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem here:</p>
+                  <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}</a></p>
+                  <p>Be sure to enter your correct netid or you will not receive credit.</p>""".format(link)
+
+        ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
+                due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
+
+
 
     def genPrivateHWSurvey(self, surveyname, nprobs):
         """ Create a HW self-grade survey and make private
@@ -1002,8 +1053,6 @@ class cornellGrading():
         response = requests.put(baseUrl3, json=data3, headers=headers3)
         assert response.status_code == 200, "Could not activate."
 
-
-
         #let's set this to private.  first need to get current options as a template
         baseUrl4 = "https://{0}.qualtrics.com/API/v3/survey-definitions/{1}/options".format(self.dataCenter,surveyId)
         tmp =  requests.get(baseUrl4, headers=headers3)
@@ -1019,10 +1068,10 @@ class cornellGrading():
         return surveyId
 
 
-
-    def setupHW(self,assignmentNum,duedate,nprobs):
-        """ Create qualtrics self-grading survey and Canvas column for 
-        a homework.
+    def setupPrivateHW(self,assignmentNum,duedate,nprobs):
+        """ Create qualtrics self-grading survey, individualized links distribution,
+        a Canvas post for where the solutions will go, and injects links into assignment
+        columns.
 
         Args:
             assignmentNum (int):
@@ -1043,22 +1092,32 @@ class cornellGrading():
 
         duedate = self.localizeTime(duedate) 
 
+        #create survey and distribution
         surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
-        assname = "HW%d Self-Grading"%assignmentNum
+        surveyId = self.genPrivateHWSurvey(surveyname, nprobs)
+        mailingListId = self.getMailingListId(self.coursename)
+        dist = self.genDistribution(surveyId,mailingListId)
 
-        link = self.genHWSurvey(surveyname, nprobs)
-
-        sg = self.getAssignmentGroup("Homework Self-Grading")
+        distnetids = np.array([d['email'].split('@')[0] for d in dist])
         
-        desc = """<p>Solutions: </p>
-                  <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem here:</p>
-                  <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}</a></p>
-                  <p>Be sure to enter your correct netid or you will not receive credit.</p>""".format(link)
+        #grab the original assignment and all the submissions
+        hwname = "HW%d"%assignmentNum
+        hw = self.getAssignment(hwname)
+        subs = hw.get_submissions() 
 
-        ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
-                due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
+        #inject links to all users in distribution
+        missing = []
+        for s in subs:
+            if self.netids[self.ids == s.user_id][0] in distnetids:
+                link = dist[np.where(distnetids == self.netids[self.ids == s.user_id])[0][0]]['link'] 
+                tmp = s.edit(comment = {'text_comment':"One-time link to self-grading survey:\n %s"%link})
+            else:
+                missing.append(s.user_id)
 
-
+        if missing:
+            print("Could not identify links for the following users:")
+            print("\n".join(missing))
+            
 
     def selfGradingImport(self,assignmentNum,duedate,totscore=10):
         """ Qualtrics self-grading survey import. 

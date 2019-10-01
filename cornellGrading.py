@@ -216,6 +216,7 @@ class cornellGrading():
 
         if points_possible == 0:
             assignment['grading_type'] = 'not_graded'
+            assignment['submission_types'] = ["not_graded"]
 
         if description:
             assignment['description'] = description
@@ -729,7 +730,7 @@ class cornellGrading():
         assert fileFormat in ["csv", "tsv", "spss"], "fileFormat must be either csv, tsv, or spss"
 
         # Setting static parameters
-        requestCheckProgress = 0.0
+        #requestCheckProgress = 0.0
         progressStatus = "inProgress"
         baseUrl = "https://{0}.qualtrics.com/API/v3/surveys/{1}/export-responses/".format(self.dataCenter, surveyId)
         headers = {
@@ -750,7 +751,7 @@ class cornellGrading():
             #print ("progressStatus=", progressStatus)
             requestCheckUrl = baseUrl + progressId
             requestCheckResponse = requests.request("GET", requestCheckUrl, headers=headers)
-            requestCheckProgress = requestCheckResponse.json()["result"]["percentComplete"]
+            #requestCheckProgress = requestCheckResponse.json()["result"]["percentComplete"]
             #print("Download is " + str(requestCheckProgress) + " complete")
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
@@ -1152,8 +1153,12 @@ class cornellGrading():
         qualtrics = pandas.read_csv(tmpfile,header=[0,1,2])
         #find netid and question cols in Qualtrics
         qnetidcol = qualtrics.columns.get_level_values(0)[np.array(["Enter your netid" in c for c in qualtrics.columns.get_level_values(1)])]
-        assert not(qnetidcol.empty), "Could not identify netid qualtrics column"
-        qnetids = np.array([n[0].lower() for n in qualtrics[qnetidcol].values]) 
+
+        #if not netid col, assume that this is a private survey and grab the email col
+        if qnetidcol.empty:
+            qnetids = np.array([e[0].split('@')[0] for e in qualtrics['RecipientEmail'].values])
+        else:
+            qnetids = np.array([n[0].lower() for n in qualtrics[qnetidcol].values]) 
 
         #calculate total scores
         quescols = qualtrics.columns.get_level_values(0)[np.array(["Question" in c and "Score" in c for c in qualtrics.columns.get_level_values(1)])]

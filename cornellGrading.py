@@ -1069,7 +1069,7 @@ class cornellGrading():
         return surveyId
 
 
-    def setupPrivateHW(self,assignmentNum,duedate,nprobs):
+    def setupPrivateHW(self,assignmentNum,duedate,nprobs,sharewith=None):
         """ Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
@@ -1083,11 +1083,10 @@ class cornellGrading():
                 Due date in format: YYYY-MM-DD (5pm assumed local time)
             nprobs (int):
                 Number of howmework problems
+            sharewith (str):
+                Qualtrics id to share survey with. Defaults to None
         Returns:
             None
-
-        Notes:
-            Note that this does not embed the solutions - still need to do that manually.
 
         """
 
@@ -1096,6 +1095,11 @@ class cornellGrading():
         #create survey and distribution
         surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
         surveyId = self.genPrivateHWSurvey(surveyname, nprobs)
+
+
+        if sharewith:
+            self.shareSurvey(surveyId,sharewith)
+
         mailingListId = self.getMailingListId(self.coursename)
         dist = self.genDistribution(surveyId,mailingListId)
 
@@ -1119,6 +1123,75 @@ class cornellGrading():
             print("Could not identify links for the following users:")
             print("\n".join(missing))
             
+
+
+    def shareSurvey(self, surveyId, sharewith):
+        """ Share survey with another qualtrics user
+        Args:
+            surveyId (str):
+                Unique survey id string
+            sharewith (str):
+                Qualtrics id to share survey with
+        Returns:
+            None
+
+        Notes:
+        """
+
+        headers = {
+            "x-api-token": self.apiToken,
+            "content-type": "application/json",
+            "Accept": "application/json"
+        }
+
+        baseUrl = "https://{0}.qualtrics.com/API/v3/surveys/{1}/permissions/collaborations".format(self.dataCenter,surveyId)
+
+        data = {
+            "userId" : sharewith,
+            "permissions" : {
+              "surveyDefinitionManipulation" : {
+                "copySurveyQuestions" : True,
+                "editSurveyFlow" : True,
+                "useBlocks" : True,
+                "useSkipLogic" : True,
+                "useConjoint" : True,
+                "useTriggers" : True,
+                "useQuotas" : True,
+                "setSurveyOptions" : True,
+                "editQuestions" : True,
+                "deleteSurveyQuestions" : True,
+                "useTableOfContents" : True,
+                "useAdvancedQuotas" : True
+               },
+              "surveyManagement" : {
+                "editSurveys" : True,
+                "activateSurveys" : True,
+                "deactivateSurveys" : True,
+                "copySurveys" : True,
+                "distributeSurveys" : True,
+                "deleteSurveys" : True,
+                "translateSurveys" : True
+              },
+              "response" : {
+                "editSurveyResponses" : True,
+                "createResponseSets" : True,
+                "viewResponseId" : True,
+                "useCrossTabs" : True,
+                "useScreenouts" : True
+              },
+              "result" : {
+                "downloadSurveyResults" : True,
+                "viewSurveyResults" : True,
+                "filterSurveyResults" : True,
+                "viewPersonalData" : True
+              }
+            }
+           }
+
+        tmp = requests.post(baseUrl,headers=headers,json=data)  
+        assert tmp.status_code == 200, "Could not share survey."
+
+
 
     def selfGradingImport(self,assignmentNum,duedate,totscore=10):
         """ Qualtrics self-grading survey import. 

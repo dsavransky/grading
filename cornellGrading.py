@@ -1193,7 +1193,7 @@ class cornellGrading():
 
 
 
-    def selfGradingImport(self,assignmentNum,duedate,totscore=10):
+    def selfGradingImport(self,assignmentNum,duedate,totscore=10,ecscore=3):
         """ Qualtrics self-grading survey import. 
 
         Args:
@@ -1234,8 +1234,15 @@ class cornellGrading():
             qnetids = np.array([n[0].lower() for n in qualtrics[qnetidcol].values]) 
 
         #calculate total scores
-        quescols = qualtrics.columns.get_level_values(0)[np.array(["Question" in c and "Score" in c for c in qualtrics.columns.get_level_values(1)])]
-        scores = qualtrics[quescols].values.sum(axis=1)/3./len(quescols)*totscore
+        quescolinds = np.array(["Question" in c and "Score" in c for c in qualtrics.columns.get_level_values(1)])
+        quescols = qualtrics.columns.get_level_values(0)[quescolinds]
+        quesnames = qualtrics.columns.get_level_values(1)[quescolinds]
+        isec = np.array(['Extra Credit' in c for c in quesnames])
+
+        scores = qualtrics[quescols[~isec]].values.sum(axis=1)/3./len(quescols[~isec])*totscore
+        if np.any(isec):
+            scores += qualtrics[quescols[isec]].values.sum(axis=1)/3./len(quescols[isec])*ecscore
+
 
         #ok, now we need to grab the canvas column
         hwname = "HW%d"%assignmentNum

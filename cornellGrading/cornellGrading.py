@@ -7,10 +7,8 @@ import pytz
 from canvasapi import Canvas 
 from canvasapi.exceptions import InvalidAccessToken 
 import requests
-import zipfile
-import json
-import io, os, sys, re
-import tempfile
+import zipfile, tempfile
+import io, os, sys, re, json
 
 class cornellGrading():
     """ Class for io methods for Canvas and Qualtrics 

@@ -4,6 +4,20 @@ Routines for semi-automated grading of MATLAB coding assignments and interaction
 Please note: the Canvas routines have the potential to bork your gradebook. Use at your own risk. 
 
 
+cornellGrading Installation
+==============================
+In the cloned grading directory:
+
+```
+pip install --user .
+```
+
+or, to install in developer mode:
+
+```
+pip install --user -e .
+```
+
 
 Canvas API Token
 ===================

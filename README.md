@@ -89,12 +89,15 @@ assignmentNum = 1 #change to actual assignment number
 nprobs = 3 #number of problems in assignment
 c.setupPrivateHW(assignmentNum,nprobs)
 
-#or, let's say you're a weirdo who only wants a single grade for the whole assignment, and wants the students to grade themselves out of 10,9,7,5,3, exclusively.  Then the last line becomes:
+#or, let's say you're a weirdo who only wants a single grade for the whole assignment, 
+#and wants the students to grade themselves out of 10,9,7,5,3, exclusively.  
+#Then the last line becomes:
 c.setupPrivateHW(assignmentNum,0,scoreOptions=[10,9,7,5,3])
 ```
 
 After executing (assuming no errors), you should see a new survey in Qualtrics with the name "Coursename HW? Self-Grade", and a personalized link should be injected into the comments for each student in the original assignment. 
 
+If your course roster has changed, be sure to run `c.updateCourseMailingList()` prior to `setupPrivateHW`.
 
 
 

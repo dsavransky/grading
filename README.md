@@ -42,12 +42,58 @@ By default, Cornell anonymizes all survey responses, regardless of how you have 
 Workflow
 ============
 
+Initial Course Setup
+------------------------
+
+In Canvas:
+* Navigate to Settings, change course name to something unique (suggestion: Name: Semester)
+* Go to Student View, and then ensure that the 'test student' appears in People (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
+
 ```python
-from grading import cornellGrading 
-c = cornellGrading.cornellGrading() #this will aks for your API token the first time and store it
-c.getCourse(coursenum=...,coursename=...) #the coursenum is the Canvas course #, the coursename is whatever you want, but must be kept consistent
-c.setupQualtrics() #only needed if you'll be interacting with qualtrics.  will store your API token on first exec
+from cornellGrading import cornellGrading
+
+#connect to canvas
+c = cornellGrading() 
+
+
+#get your coursenumber (the part in parentheses):
+for cn in c.canvas.get_courses(): print(cn) 
+
+coursenum = ... #change to your actual number from list printed above
+
+c.getCourse(coursenum)
+
+#sanity check
+print(c.coursename) #should be the course name you set in Canvas
+print(c.names) #should be all your students
+
+#connect to qualtrics
+c.setupQualtrics() 
+
+#generate course mailing list
+c.genCourseMailingList()
 ```
+
+Create a HW Survey
+--------------------
+
+This assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number (i.e., 'HW1', 'HW2', etc.).
+
+```python
+from cornellGrading import cornellGrading
+c = cornellGrading() 
+coursenum =   #insert your course number here
+c.getCourse(coursenum)
+c.setupQualtrics() 
+assignmentNum = 1 #change to actual assignment number
+nprobs = 3 #number of problems in assignment
+c.setupPrivateHW(assignmentNum,nprobs)
+
+#or, let's say you're a weirdo who only wants a single grade for the whole assignment, and wants the students to grade themselves out of 10,9,7,5,3, exclusively.  Then the last line becomes:
+c.setupPrivateHW(assignmentNum,0,scoreOptions=[10,9,7,5,3])
+```
+
+After executing (assuming no errors), you should see a new survey in Qualtrics with the name "Coursename HW? Self-Grade", and a personalized link should be injected into the comments for each student in the original assignment. 
 
 
 

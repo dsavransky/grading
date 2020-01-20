@@ -46,7 +46,7 @@ class cornellGrading():
         self.canvas = canvas
 
 
-    def getCourse(self, coursenum = 5773, coursename="MAE4060 Fall2019"):
+    def getCourse(self, coursenum):
         """ Access course and load all student names, ids and netids
     
         Args:
@@ -60,6 +60,8 @@ class cornellGrading():
                 
     
         """
+
+        assert isinstance(coursenum,int), "coursenum must be an int"
 
         #get the course
         course = self.canvas.get_course(coursenum)
@@ -87,7 +89,7 @@ class cornellGrading():
         self.ids = ids
         self.netids = netids
 
-        self.coursename = coursename
+        self.coursename = course.name
 
     def localizeTime(self,duedate,duetime="17:00:00", tz="US/Eastern"):
         """ Helper method for setting the proper UTC time while being
@@ -971,14 +973,16 @@ class cornellGrading():
 
 
 
-    def genPrivateHWSurvey(self, surveyname, nprobs):
+    def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None):
         """ Create a HW self-grade survey and make private
 
         Args:
             surveyname (str):
                 Name of survey
             nprobs (int):
-                Number of problems on the HW
+                Number of problems on the HW. Set to 0 for total score only.
+            scoreOptions (list of ints):
+                Possible responses to each question.  Defaults to 0,1,2,3
                 
 
         Returns:
@@ -990,6 +994,8 @@ class cornellGrading():
             The survey will be published and activated, but made private.  No distributions will be created.
         """
 
+        assert isinstance(nprobs,int),"nprobs must be an int"
+        assert nprobs >= 0, "nprobs must be a positive integer (or zero)"
 
         surveyId = self.createSurvey(surveyname)
 
@@ -999,6 +1005,41 @@ class cornellGrading():
            'content-type': "application/json",
            "x-api-token": self.apiToken,
         }
+
+
+        if  scoreOptions is None:
+            scoreOptions=[0,1,2,3])
+
+        choices = {}
+        for j,choice in enumerate(scoreOptions):
+            choices[str(j+1)] = {'Display':str(choice)}
+        choiceOrder = list(range(1,len(choices)+1))
+
+        
+        if nprobs == 0:
+            questionDef = {
+                 'QuestionText': 'HW Score',
+                 'DataExportTag': 'Q1',
+                 'QuestionType': 'MC',
+                 'Selector': 'SAVR',
+                 'SubSelector': 'TX',
+                 'Configuration': {'QuestionDescriptionOption': 'UseText'},
+                 'QuestionDescription': 'HW Score',
+                 'Choices': choices,
+                 'ChoiceOrder': choiceOrder,
+                 'Validation': {'Settings': {'ForceResponse': 'ON',
+                   'ForceResponseType': 'ON',
+                   'Type': 'None'}},
+                 'Language': [],
+                 'QuestionID': 'QID1',
+                 'DataVisibility': {'Private': False, 'Hidden': False},
+                 'NextChoiceId': 5,
+                 'NextAnswerId': 1,
+                 'QuestionText_Unsafe': 'HW Score'}
+            response = requests.post(baseUrl, json=questionDef, headers=headers)
+            assert response.status_code == 200, "Couldn't add problem question."
+
+           
 
         #add rubric questions for all problems
         for j in range(1,nprobs+1):
@@ -1010,11 +1051,8 @@ class cornellGrading():
                  'SubSelector': 'TX',
                  'Configuration': {'QuestionDescriptionOption': 'UseText'},
                  'QuestionDescription': 'Question %d Score'%j,
-                 'Choices': {'1': {'Display': '0'},
-                  '2': {'Display': '1'},
-                  '3': {'Display': '2'},
-                  '4': {'Display': '3'}},
-                 'ChoiceOrder': [1, 2, 3, 4],
+                 'Choices': choices,
+                 'ChoiceOrder': choiceOrder,
                  'Validation': {'Settings': {'ForceResponse': 'ON',
                    'ForceResponseType': 'ON',
                    'Type': 'None'}},
@@ -1067,7 +1105,7 @@ class cornellGrading():
         return surveyId
 
 
-    def setupPrivateHW(self,assignmentNum,duedate,nprobs,sharewith=None):
+    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None):
         """ Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
@@ -1077,22 +1115,21 @@ class cornellGrading():
                 Number of assignment. Name of survey will be 
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW# Self-Grading
-            duedate (str):
-                Due date in format: YYYY-MM-DD (5pm assumed local time)
             nprobs (int):
                 Number of howmework problems
             sharewith (str):
                 Qualtrics id to share survey with. Defaults to None
+            scoreOptions (list of ints):
+                Possible responses to each question.  Defaults to 0,1,2,3
+
         Returns:
             None
 
         """
 
-        duedate = self.localizeTime(duedate) 
-
         #create survey and distribution
         surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
-        surveyId = self.genPrivateHWSurvey(surveyname, nprobs)
+        surveyId = self.genPrivateHWSurvey(surveyname, nprobs, scoreOptions=scoreOptions)
 
 
         if sharewith:

@@ -1044,6 +1044,69 @@ class cornellGrading():
         ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
                 due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
 
+        
+    def uploadHW(self,assignmentNum,duedate,hwfile,totscore=10,unlockDelta=None):
+        """ Create qualtrics self-grading survey and Canvas column for 
+        a homework.
+
+        Args:
+            assignmentNum (int):
+                Number of assignment. Name of survey will be 
+                "self.coursename HW# Self-Grade"
+                Name of assignment will be HW# Self-Grading
+            duedate (str):
+                Due date in format: YYYY-MM-DD (5pm assumed local time)
+            hwfile (str):
+                Full path to homework file
+            unlockDelta (float):
+                Unlock this number of days before due date
+
+           Returns:
+                None
+
+        """
+
+        duedate = self.localizeTime(duedate) 
+
+        hwname = "HW%d"%assignmentNum
+
+        try:
+            hw = self.getAssignment(hwname)
+            alreadyExists = True
+        except:
+            alreadyExists = False
+
+        assert not(alreadyExists), "%s already exists"%hwname
+
+        #grab assignment group
+        hwgroup = self.getAssignmentGroup("Assignments")
+
+        #grab homeworks folder
+        try:
+            hwfolder = self.getFolder("Homeworks")
+        except:
+            hwfolder = self.createFolder("Homeworks")
+
+        res = hwfolder.upload(hwfile) 
+
+        assert res[0],"HW Upload failed."
+
+        hwurl = res[1]['url']
+        hwfname = res[1]['filename']
+        hwepoint = hwurl.split('/download')[0]
+
+        desc = """<p><a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(hwfname,hwurl,hwepoint)
+
+        if unlockDelta:
+            unlockAt = duedate-timedelta(days=unlockDelta)
+        else:
+            unlockAt = None
+
+        hw = self.createAssignment(hwname,hwgroup.id,points_possible=10,description=desc,\
+                due_at=duedate,unlock_at=unlockAt, submission_types=['online_upload'])
+
+        return hw
+
 
 
     def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None):
@@ -1178,7 +1241,7 @@ class cornellGrading():
         return surveyId
 
 
-    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None, createAss=True):
+    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None, createAss=False, solutions=None ):
         """ Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
@@ -1194,6 +1257,11 @@ class cornellGrading():
                 Qualtrics id to share survey with. Defaults to None
             scoreOptions (list of ints):
                 Possible responses to each question.  Defaults to 0,1,2,3
+            createAss (bool):
+                Whether to create a self-grading assignment in Canvas (defaults False)
+            solutions (str):
+                Full path to solutions file to upload.  
+
 
         Returns:
             None
@@ -1203,7 +1271,6 @@ class cornellGrading():
         #create survey and distribution
         surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
         surveyId = self.genPrivateHWSurvey(surveyname, nprobs, scoreOptions=scoreOptions)
-
 
         if sharewith:
             self.shareSurvey(surveyId,sharewith)
@@ -1231,6 +1298,34 @@ class cornellGrading():
             print("Could not identify links for the following users:")
             print("\n".join(missing))
         
+        
+        if createAss:
+            duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
+
+            #grab self-grading group
+            try:
+                sg = self.getAssignmentGroup("Homework Self-Grading")
+            except:
+                sg = self.createAssignmentGroup("Homework Self-Grading")
+
+            #grab homeworks folder
+            try:
+                hwfolder = self.getFolder("Homeworks")
+            except:
+                hwfolder = self.createFolder("Homeworks")
+
+        
+            desc = """<p>Solutions: </p>
+                    <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem here:</p>
+                    <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}</a></p>
+                    <p>Be sure to enter your correct netid or you will not receive credit.</p>""".format(link)
+
+            ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
+                    due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
+
+
+
+
 
     def shareSurvey(self, surveyId, sharewith):
         """ Share survey with another qualtrics user

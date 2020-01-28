@@ -146,7 +146,7 @@ class cornellGrading():
         """ Locate assignment group by name
     
         Args:
-            assignmentGroup (str):
+            groupName (str):
                 Name of assignment group to return.  Must be exact match.
                 To see all assignments do:
                 >> for a in c.course.get_assignment_groups(): print(a) 
@@ -163,9 +163,79 @@ class cornellGrading():
                 group = t
                 break
 
-        assert group is not None,"Could not find assignment group."
+        assert group is not None,"Could not find assignment group %s"%groupName
 
         return group
+
+    
+    def createAssignmentGroup(self,groupName):
+        """ Create assignment group by name
+    
+        Args:
+            assignmentGroup (str):
+                Name of assignment group to create. Cannot be name of existing group
+        Returns:
+            canvasapi.assignment.AssignmentGroup:
+                The assignment group object
+                    
+        """
+        tmp = self.course.get_assignment_groups()
+        currGroups = [t.name for t in tmp]
+
+        assert groupName not in currGroups,"Assignment group %s already exists"%groupName
+
+        group = self.course.create_assignment_group(name=groupName)
+        
+        return group
+
+    def getFolder(self,folderName):
+        """ Locate folder by name
+    
+        Args:
+             (str):
+                Name of folder to return.  Must be exact match.
+                To see all assignments do:
+                >> for a in c.course.get_folders(): print(a.name) 
+        Returns:
+            canvasapi.folder.Folder
+                The folder object
+                    
+        """
+        
+        tmp = self.course.get_folders()
+        folder = None
+        for t in tmp:
+            if t.name == folderName:
+                folder = t
+                break
+
+        assert folder is not None,"Could not find folder %s"%folderName
+
+        return folder
+
+
+    def createFolder(self,folderName,hidden=False):
+        """ Create folder by name
+    
+        Args:
+            folderName (str):
+                Name of assignment group to create. Cannot be name of existing group
+            hidden (bool):
+                Whether to toggle to hidden (false by default)
+        Returns:
+            canvasapi.folder.Folder
+                The folder object
+                    
+        """
+        tmp = self.course.get_folders()
+        currFolders = [t.name for t in tmp]
+
+        assert folderName not in currFolders,"Folder %s already exists"%folderName
+        cf = self.getFolder('course files')
+
+        folder = self.course.create_folder(folderName,parent_folder_id=str(cf.id),hidden=hidden)
+        
+        return folder
 
 
     def createAssignment(self,name,groupid,submission_types=["none"],\
@@ -961,7 +1031,10 @@ class cornellGrading():
 
         link = self.genHWSurvey(surveyname, nprobs)
 
-        sg = self.getAssignmentGroup("Homework Self-Grading")
+        try:
+            sg = self.getAssignmentGroup("Homework Self-Grading")
+        except:
+            sg = self.createAssignmentGroup("Homework Self-Grading")
         
         desc = """<p>Solutions: </p>
                   <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem here:</p>
@@ -1105,7 +1178,7 @@ class cornellGrading():
         return surveyId
 
 
-    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None):
+    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None, createAss=True):
         """ Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
@@ -1157,8 +1230,7 @@ class cornellGrading():
         if missing:
             print("Could not identify links for the following users:")
             print("\n".join(missing))
-            
-
+        
 
     def shareSurvey(self, surveyId, sharewith):
         """ Share survey with another qualtrics user
@@ -1228,7 +1300,7 @@ class cornellGrading():
 
 
 
-    def selfGradingImport(self,assignmentNum,duedate,totscore=10,ecscore=3):
+    def selfGradingImport(self,assignmentNum,duedate,totscore=10,ecscore=3,checkLate=True,latePenalty=0.25,maxDaysLate=3):
         """ Qualtrics self-grading survey import. 
 
         Args:
@@ -1236,10 +1308,16 @@ class cornellGrading():
                 Number of assignment. Name of survey will be 
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW#
-            duedate (str):
-                Due date in format: YYYY-MM-DD (5pm assumed local time)
             totscore (int):
                 Total score for assignment (defaults to 10)
+            escore (int):
+                Extra credit score (defaults to 3)
+            checkLate (bool):
+                Check for late submissions (defaults true)
+            latePenalty (float):
+                Fraction of score to remove for lateness (defaults to 0.25).  Must be in (0,1).
+            maxDaysLate (float):
+                After this number of days past deadline, HW gets zero. Defaults to 3.
         Returns:
             None
 
@@ -1248,8 +1326,6 @@ class cornellGrading():
             click the right arrow, and then set status to 'None'.
 
         """
-
-        duedate = self.localizeTime(duedate)
 
         surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
         surveyId = self.getSurveyId(surveyname)
@@ -1282,39 +1358,41 @@ class cornellGrading():
         #ok, now we need to grab the canvas column
         hwname = "HW%d"%assignmentNum
         hw = self.getAssignment(hwname)
+        duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
 
-        #get submission times
-        tmp = hw.get_submissions() 
-        subnetids = []
-        subtimes = []
-        lates = []
-        for t in tmp:
-            if t.user_id in self.ids:
-                subnetids.append(self.netids[self.ids == t.user_id][0])
-                if t.submitted_at:
-                    subtime = datetime.strptime(t.submitted_at, """%Y-%m-%dT%H:%M:%S%z""")
-                    tdelta = duedate - subtime
-                    subtimes.append(tdelta.total_seconds())
-                else:
-                    subtimes.append(np.nan)
-                lates.append(t.late)
+        if checkLate:
+            #get submission times
+            tmp = hw.get_submissions() 
+            subnetids = []
+            subtimes = []
+            lates = []
+            for t in tmp:
+                if t.user_id in self.ids:
+                    subnetids.append(self.netids[self.ids == t.user_id][0])
+                    if t.submitted_at:
+                        subtime = datetime.strptime(t.submitted_at, """%Y-%m-%dT%H:%M:%S%z""")
+                        tdelta = duedate - subtime
+                        subtimes.append(tdelta.total_seconds())
+                    else:
+                        subtimes.append(np.nan)
+                    lates.append(t.late)
 
-        subnetids = np.array(subnetids)
-        subtimes = np.array(subtimes)
-        lates = np.array(lates)
+            subnetids = np.array(subnetids)
+            subtimes = np.array(subtimes)
+            lates = np.array(lates)
 
-        #update scores based on lateness
-        for j,i in enumerate(qnetids):
-            if (i == i) and (i in self.netids):
-                if np.isnan(subtimes[subnetids == i][0]):
-                    scores[j] = 0
-                else:
-                    #if late but within 3 days, take away 25% of the totscore
-                    if (subtimes[subnetids == i][0] < -5*60.) and lates[subnetids == i][0]:
-                        scores[j] -= totscore*0.25
-                    #if more than 3 days, they get NOTHING
-                    if (subtimes[subnetids == i][0] < -5*60. - 3*86400.):
+            #update scores based on lateness
+            for j,i in enumerate(qnetids):
+                if (i == i) and (i in self.netids):
+                    if np.isnan(subtimes[subnetids == i][0]):
                         scores[j] = 0
+                    else:
+                        #if late but within 3 days, take away 25% of the totscore
+                        if (subtimes[subnetids == i][0] < -5*60.) and lates[subnetids == i][0]:
+                            scores[j] -= totscore*latePenalty
+                        #if more than 3 days, they get NOTHING
+                        if (subtimes[subnetids == i][0] < -5*60. - maxDaysLate*86400.):
+                            scores[j] = 0
 
         self.uploadScores(hw, qnetids, scores)
 

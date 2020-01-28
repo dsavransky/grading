@@ -1008,7 +1008,7 @@ class cornellGrading():
 
 
         if  scoreOptions is None:
-            scoreOptions=[0,1,2,3])
+            scoreOptions=[0,1,2,3]
 
         choices = {}
         for j,choice in enumerate(scoreOptions):

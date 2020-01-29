@@ -46,8 +46,13 @@ Initial Course Setup
 ------------------------
 
 In Canvas:
-* Navigate to Settings, change course name to something unique (suggestion: Name: Semester)
-* Go to Student View, and then ensure that the 'test student' appears in People (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
+* Navigate to Settings>Course Details and change course name to something unique (suggestion: Name: Semester).  Be sure to click 'Update Course Details' at the bottom.
+* Navigate to Settings>Course Details, scroll to the very bottom, click 'more options', and check 'Hide totals in student grades summary'. Click 'Updated Course Details'
+* Navigate to Settings>Navigation and ensure that 'Grades' and 'Assignments' are both in the active items (top part of page).  If you want students to be able to directly access files (rather than only via links), then add 'Files' to the active navigation items as well. Don't forget to click 'Save' at the bottom of the page.
+* Go to Student View (button on right-hand side of home page), and then ensure that the 'test student' appears in People (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
+* Navigate to Grades.  Click the settings icon (right of the search box) and go to the 'Grade Posting Policy tab'. Ensure that 'Automatically Post Grades' is clicked (this allows for students to see comments on HWs before grades are entered, which is necessary for link injection to the self-grading surveys. Be sure to click 'Update' if any changes are made.
+
+Now, in python:
 
 ```python
 from cornellGrading import cornellGrading
@@ -72,6 +77,35 @@ c.setupQualtrics()
 
 #generate course mailing list
 c.genCourseMailingList()
+```
+
+Upload a Homework and Create a New Assignment
+-----------------------------------------------
+
+This procedure automates the creation of new assignments, assuming that your homework statement is in a single PDF document.  This assumes that there already exists an 'Assignments' assignment group (Canvas default), and will create a 'Homeworks' folder under Files that is not directly accessible to students (assuming it does not already exist).
+
+The assignment will be titled 'HW?' where ? is the assignment number (i.e., 'HW1', 'HW2', etc.).
+
+
+In python:
+
+```python
+from cornellGrading import cornellGrading
+c = cornellGrading() 
+coursenum =   #insert your course number here
+c.getCourse(coursenum)
+
+assignmentNum =   #enter assignment number (must be integer)
+duedate =         #enter assignment duedate in 'YYYY-MM-DD' format. The due time will be 5pm by default.
+hwfile =          #string - full path on your local disk to the HW pdf file
+res = c.uploadHW(assignmentNum,duedate,hwfile) 
+
+#by default, the created assignment will be worth 10 points.  To change this, instead run:
+res = c.uploadHW(assignmentNum,duedate,hwfile,totscore=N) #N must be an integer
+
+#by default, the created assignment will be immediate visible. To change this, instead run:
+res = c.uploadHW(assignmentNum,duedate,hwfile,unlockDelta=M) 
+#where M is a positive float and represents the number of days prior to the due date to unlock the assignment.
 ```
 
 Create a HW Survey

@@ -1241,7 +1241,8 @@ class cornellGrading():
         return surveyId
 
 
-    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None, createAss=False, solutions=None ):
+    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None,\
+            createAss=False, solutions=None, selfGradeDueDelta=7,selfGradeReleasedDelta=3):
         """ Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
@@ -1261,6 +1262,10 @@ class cornellGrading():
                 Whether to create a self-grading assignment in Canvas (defaults False)
             solutions (str):
                 Full path to solutions file to upload.  
+            selfGradeDueDelta (float):
+                Days after initial hw duedate that self-grading is due
+            selfGradeReleasedDelta (float):
+                Days after initial hw duedate that self-grading (and solutions) are released.
 
 
         Returns:
@@ -1301,6 +1306,7 @@ class cornellGrading():
         
         if createAss:
             duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
+            assname = "HW%d Self-Grading"%assignmentNum
 
             #grab self-grading group
             try:
@@ -1314,16 +1320,19 @@ class cornellGrading():
             except:
                 hwfolder = self.createFolder("Homeworks")
 
-        
-            desc = """<p>Solutions: </p>
-                    <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem here:</p>
-                    <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}</a></p>
-                    <p>Be sure to enter your correct netid or you will not receive credit.</p>""".format(link)
+            res = hwfolder.upload(solutions) 
+
+            assert res[0],"Solutions Upload failed."
+
+            solurl = res[1]['url']
+            solfname = res[1]['filename']
+            solepoint = solurl.split('/download')[0]
+
+            desc = """<p>Solutions: <a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>
+                    <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem by following the link in the comments on your original submission.</p>""".format(solfname,solurl,solepoint)
 
             ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
-                    due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
-
-
+                    due_at=duedate+timedelta(days=selfGradeDueDelta),unlock_at=duedate+timedelta(days=selfGradeReleasedDelta))
 
 
 

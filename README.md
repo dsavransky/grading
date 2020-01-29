@@ -26,8 +26,8 @@ To generate token, in Canvas:
 * Click '+New Access Token'.  Copy the token.  *NB: It won't be displayed again.*
 
 
-Qualtrics API Token
-=====================
+[Qualtrics API Token](#qualtrics-api-token)
+=============================================
 On the qualtrics site:
 * Navigate to: Account Settings>Qualtrics IDs
 * Click the 'Generate Token' button under API

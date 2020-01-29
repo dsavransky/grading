@@ -26,7 +26,7 @@ To generate token, in Canvas:
 * Click '+New Access Token'.  Copy the token.  *NB: It won't be displayed again.*
 
 
-[Qualtrics API Token](#qualtrics-api-token)
+Qualtrics API Token
 =============================================
 On the qualtrics site:
 * Navigate to: Account Settings>Qualtrics IDs
@@ -133,7 +133,7 @@ After executing (assuming no errors), you should see a new survey in Qualtrics w
 
 If your course roster has changed, be sure to run `c.updateCourseMailingList()` prior to `setupPrivateHW`.
 
-You can also share the created survey with another qualtrics user (say, your TA).  To do so, you will need them to give you their Qualtrics id, which they can find in the Qualtrics IDs page (see Qualtrics API Token [qualtrics-api-token]).
+You can also share the created survey with another qualtrics user (say, your TA).  To do so, you will need them to give you their Qualtrics id, which they can find in the Qualtrics IDs page ([see Qualtrics API Token ](#qualtrics-api-token)).
 
 
 

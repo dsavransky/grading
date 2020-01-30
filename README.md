@@ -86,7 +86,6 @@ This procedure automates the creation of new assignments, assuming that your hom
 
 The assignment will be titled 'HW?' where ? is the assignment number (i.e., 'HW1', 'HW2', etc.).
 
-
 In python:
 
 ```python
@@ -135,6 +134,29 @@ If your course roster has changed, be sure to run `c.updateCourseMailingList()` 
 
 You can also share the created survey with another qualtrics user (say, your TA).  To do so, you will need them to give you their Qualtrics id, which they can find in the Qualtrics IDs page ([see Qualtrics API Token ](#qualtrics-api-token)). Make sure you get their ID, and not their API token.  To enable sharing, add `sharewith=qualtricsid` to the `setupPrivateHW` call, where `qualtricsid` is id string to share with.
 
+Upload Solutions and Create Self-Grading Assignment
+------------------------------------------------------
+
+In addition to creating the HW survey in qualtrics and injecting links into the assignment comments, `setupPrivateHW` can also create a self-grading assignment on Canvas with the homework solutions and a due date that is different from the due date of the original assignment.  This functionality is toggled by passing `createAss=True` to the `setupPrivateHW` call.  The other relevant keyword arguments are:
+* `solutions`: String, full path to solutions PDF file on your local disk
+* `selfGradeDueDelta`: Float, number of days after original assignment due date for self-grading to be due (defaults to 7) 
+* `selfGradeReleasedDelta`: Float, number of days after original assignment due date when the self-grading assignment is released to students (defaults to 3).
+
+So, a full call would look something like:
+
+```python
+from cornellGrading import cornellGrading
+c = cornellGrading() 
+coursenum =   #insert your course number here
+c.getCourse(coursenum)
+c.setupQualtrics() 
+assignmentNum = 1 #change to actual assignment number
+nprobs = 3 #number of problems in assignment
+solutionsFile =   #insert path to solutions file
+c.setupPrivateHW(assignmentNum,nprobs,createAss=True,solutions=solutionsFile)
+```
+
+This will create a  'Homework Self-Grading' assignment group (if it does not already exist), and will create a 'Homeworks' folder under Files that is not directly accessible to students (also assuming it does not already exist).
 
 
 

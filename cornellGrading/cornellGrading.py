@@ -1404,7 +1404,7 @@ class cornellGrading():
 
 
 
-    def selfGradingImport(self,assignmentNum,duedate,totscore=10,ecscore=3,checkLate=True,latePenalty=0.25,maxDaysLate=3):
+    def selfGradingImport(self,assignmentNum,ecscore=3,checkLate=True,latePenalty=0.25,maxDaysLate=3):
         """ Qualtrics self-grading survey import. 
 
         Args:
@@ -1412,8 +1412,6 @@ class cornellGrading():
                 Number of assignment. Name of survey will be 
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW#
-            totscore (int):
-                Total score for assignment (defaults to 10)
             escore (int):
                 Extra credit score (defaults to 3)
             checkLate (bool):
@@ -1431,6 +1429,13 @@ class cornellGrading():
 
         """
 
+        #grab the canvas column
+        hwname = "HW%d"%assignmentNum
+        hw = self.getAssignment(hwname)
+        duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
+        totscore = hw.points_possible
+
+        #grab the survey
         surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
         surveyId = self.getSurveyId(surveyname)
         tmpdir = self.exportSurvey(surveyId)
@@ -1450,19 +1455,18 @@ class cornellGrading():
 
         #calculate total scores
         quescolinds = np.array(["Question" in c and "Score" in c for c in qualtrics.columns.get_level_values(1)])
-        quescols = qualtrics.columns.get_level_values(0)[quescolinds]
-        quesnames = qualtrics.columns.get_level_values(1)[quescolinds]
-        isec = np.array(['Extra Credit' in c for c in quesnames])
+        if quescolinds.size>0:
+            quescols = qualtrics.columns.get_level_values(0)[quescolinds]
+            quesnames = qualtrics.columns.get_level_values(1)[quescolinds]
+            isec = np.array(['Extra Credit' in c for c in quesnames])
 
-        scores = qualtrics[quescols[~isec]].values.sum(axis=1)/3./len(quescols[~isec])*totscore
-        if np.any(isec):
-            scores += qualtrics[quescols[isec]].values.sum(axis=1)/3./len(quescols[isec])*ecscore
-
-
-        #ok, now we need to grab the canvas column
-        hwname = "HW%d"%assignmentNum
-        hw = self.getAssignment(hwname)
-        duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
+            scores = qualtrics[quescols[~isec]].values.sum(axis=1)/3./len(quescols[~isec])*totscore
+            if np.any(isec):
+                scores += qualtrics[quescols[isec]].values.sum(axis=1)/3./len(quescols[isec])*ecscore
+        else:
+            totscorecol = qualtrics.columns.get_level_values(0)[np.array(["HW Score" in c for c in qualtrics.columns.get_level_values(1)])]
+            assert not(totscorecol.empty),"Cannot locate any scores."
+            scores = np.array(qualtrics[totscorecol].values).astype(float)
 
         if checkLate:
             #get submission times

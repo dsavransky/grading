@@ -159,6 +159,30 @@ c.setupPrivateHW(assignmentNum,nprobs,createAss=True,solutions=solutionsFile)
 This will create a  'Homework Self-Grading' assignment group (if it does not already exist), and will create a 'Homeworks' folder under Files that is not directly accessible to students (also assuming it does not already exist).
 
 
+Grab Self-Grading Results and Upload to Canvas
+------------------------------------------------
+
+Finally, once students have completed their self-assessment via Qualtrics, we need to move their scores into the Canvas gradebook.  This is done via the `selfGradingImport` method.  Again, this assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number, and also that you have assigned a point value to the assignment in Canvas (if you're using the single-question survey variant, and not checking for late submissions, the latter is not required).
+
+In python:
+
+```python
+from cornellGrading import cornellGrading
+c = cornellGrading() 
+coursenum =   #insert your course number here
+c.getCourse(coursenum)
+c.setupQualtrics() 
+assignmentNum = 1 #change to actual assignment number
+c.selfGradingImport(assignmentNum)
+```
+
+By default, this will take the sum of all of the survey question responses, scale by the ratio of the total assignment points (grabbed from Canvas) to the total number of possible points in the survey. If you are using the single-question survey variant (i.e., set `nprobs` to 0 in the `setupPrivateHW` call), then the assignment total value in Canvas is ignored, and just the exact value from Qualtrics is used. 
+
+Default behavior is to check for late submissions, and then subtract 1/4th the total number of points if the assignment is late. Lateness is defined by the `maxDaysLate` keyword (defaults to 3), past which the assignment is marked zero, and the penalty itself is set by `latePenalty`.  In order to toggle off late checking alltogether, set `checkLate=False`, so that the last line above becomes `c.selfGradingImport(assignmentNum,checkLate=False)`.
+
+If your assignment has extra credit problems, you can identify these in your survey by adding the words 'Extra Credit' to any of the question names.  In this case, a maximum of `ecscore` points (default is 3) will be added to the HW score for all extra credit problems being self-marked perfect (and scaling down consistently with self-grading). 
+
+
 
 
 

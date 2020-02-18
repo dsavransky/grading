@@ -1297,7 +1297,7 @@ class cornellGrading():
                 link = dist[np.where(distnetids == self.netids[self.ids == s.user_id])[0][0]]['link'] 
                 tmp = s.edit(comment = {'text_comment':"One-time link to self-grading survey:\n %s"%link})
             else:
-                missing.append(s.user_id)
+                missing.append(self.netids[self.ids == s.user_id][0])
 
         if missing:
             print("Could not identify links for the following users:")

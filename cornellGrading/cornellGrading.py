@@ -673,7 +673,7 @@ class cornellGrading():
 
         libId = None
         for el in tmp.json()['result']['elements']:
-            if 'UR_' in el['libraryId']:
+            if 'UR_' in el['libraryId'] or 'URH_' in el['libraryId']:
                 libId = el['libraryId']
                 break
         assert libId is not None, "Could not identify library id."

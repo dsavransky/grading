@@ -49,7 +49,7 @@ In Canvas:
 * Navigate to Settings>Course Details and change course name to something unique (suggestion: Name: Semester).  Be sure to click 'Update Course Details' at the bottom.
 * Navigate to Settings>Course Details, scroll to the very bottom, click 'more options', and check 'Hide totals in student grades summary'. Click 'Updated Course Details'
 * Navigate to Settings>Navigation and ensure that 'Grades' and 'Assignments' are both in the active items (top part of page).  If you want students to be able to directly access files (rather than only via links), then add 'Files' to the active navigation items as well. Don't forget to click 'Save' at the bottom of the page.
-* Go to Student View (button on right-hand side of home page), and then ensure that the 'test student' appears in People (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
+* Go to Student View (button on right-hand side of home page), exit student view, and then ensure that the 'test student' appears in People when you are back in Instructor view (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
 * Navigate to Grades.  Click the settings icon (right of the search box) and go to the 'Grade Posting Policy tab'. Ensure that 'Automatically Post Grades' is clicked (this allows for students to see comments on HWs before grades are entered, which is necessary for link injection to the self-grading surveys. Be sure to click 'Update' if any changes are made.
 
 Now, in python:

@@ -1457,7 +1457,7 @@ class cornellGrading():
 
         #calculate total scores
         quescolinds = np.array(["Question" in c and "Score" in c for c in qualtrics.columns.get_level_values(1)])
-        if quescolinds.size>0:
+        if np.any(quescolinds):
             quescols = qualtrics.columns.get_level_values(0)[quescolinds]
             quesnames = qualtrics.columns.get_level_values(1)[quescolinds]
             isec = np.array(['Extra Credit' in c for c in quesnames])

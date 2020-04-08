@@ -1440,6 +1440,8 @@ class cornellGrading():
         surveyId = self.getSurveyId(surveyname)
         tmpdir = self.exportSurvey(surveyId)
 
+        if ':' in surveyName:
+            surveyName = surveyName.replace(':','_')
         tmpfile = os.path.join(tmpdir,surveyname+".csv")
         assert  os.path.isfile(tmpfile), "Survey results not where expected."
 

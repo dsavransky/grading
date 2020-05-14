@@ -826,7 +826,7 @@ class cornellGrading():
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
         #step 2.1: Check for error
-        if progressStatus is "failed":
+        if progressStatus == "failed":
             raise Exception("export failed")
 
         print("Download complete.")

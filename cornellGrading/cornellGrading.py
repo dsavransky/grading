@@ -9,6 +9,14 @@ from canvasapi.exceptions import InvalidAccessToken
 import requests
 import zipfile, tempfile
 import io, os, sys, re, json
+try:
+    import subprocess
+    import shutil
+    from html.parser import HTMLParser
+    import pdf2image
+    from PIL import Image
+except:
+    pass
 
 class cornellGrading():
     """ Class for io methods for Canvas and Qualtrics 
@@ -1045,9 +1053,11 @@ class cornellGrading():
                 due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
 
         
-    def uploadHW(self,assignmentNum,duedate,hwfile,totscore=10,unlockDelta=None):
-        """ Create qualtrics self-grading survey and Canvas column for 
-        a homework.
+    def uploadHW(self,assignmentNum,duedate,hwfile,totscore=10,unlockDelta=None,injectText=False):
+        """ Create a Canvas assignment, set the duedae, upload an associated 
+        PDF and link in the assignment description, set the number of points, and
+        (optionally), set an unlock time and inject the assignment text into the 
+        description along with the PDF link.
 
         Args:
             assignmentNum (int):
@@ -1059,7 +1069,13 @@ class cornellGrading():
             hwfile (str):
                 Full path to homework file
             unlockDelta (float):
-                Unlock this number of days before due date
+                Unlock this number of days before due date. Defaults to None,
+                which makes the assignment initially unlocked.
+            injectText (bool):
+                If True, will attempt to locate the tex file associated with the
+                provided PDF in hwfile (looking in the same directory), will then
+                convert to Canvas compatible html using pandoc, and add to the assignment
+                description.  Requires pandoc to be installed and callable!
 
            Returns:
                 None
@@ -1085,7 +1101,7 @@ class cornellGrading():
         try:
             hwfolder = self.getFolder("Homeworks")
         except:
-            hwfolder = self.createFolder("Homeworks")
+            hwfolder = self.createFolder("Homeworks",hidden=True)
 
         res = hwfolder.upload(hwfile) 
 
@@ -1095,12 +1111,69 @@ class cornellGrading():
         hwfname = res[1]['filename']
         hwepoint = hwurl.split('/download')[0]
 
-        desc = """<p><a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(hwfname,hwurl,hwepoint)
+        desc = """<p>Downloadable Assignment: <a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(hwfname,hwurl,hwepoint)
 
         if unlockDelta:
             unlockAt = duedate-timedelta(days=unlockDelta)
         else:
             unlockAt = None
+
+        if injectText:
+            assert shutil.which("pandoc"),"Cannot locate pandoc"
+
+            hwd,hwf = os.path.split(hwfile)
+            texf = os.path.join(hwd,hwf.split(os.extsep)[0]+os.extsep+'tex')
+            htmlf = os.path.join(hwd,hwf.split(os.extsep)[0]+os.extsep+'html')
+            assert os.path.exists(texf), "Cannot locate LaTeX source %s"%texf
+
+            res = subprocess.run(["pandoc", texf, "-s", "--webtex", "-o", htmlf,\
+                    "--default-image-extension=png"],check=True,capture_output=True)
+            assert os.path.exists(htmlf), "Cannot locate html output %s"%htmlf
+
+            with open(htmlf) as f:
+                lines = f.readlines()
+
+            class MyHTMLParser(HTMLParser):
+
+                def __init__(self):
+                    HTMLParser.__init__(self)
+                    self.inBody = False
+                    self.imagesToUpload = []
+
+                def handle_starttag(self, tag, attrs):
+                    if tag == "body":
+                        self.inBody = True
+                    if tag == "img":
+                        imsrc = dict(attrs)['src']
+                        if not(imsrc.startswith("http")):
+                            if not(os.path.exists(os.path.join(hwd,imsrc))):
+                                #look for the pdf of this image
+                                imf = os.path.join(hwd,imsrc.split(os.extsep)[0]+os.extsep+'pdf')
+                                assert os.path.exists(imf),"Original image file not found: %s"%imf
+                                pilim = pdf2image.convert_from_path(os.path.join(hwd,imf), dpi=150,
+                                        output_folder=None, fmt='png', use_cropbox=False, strict=False)
+                                pilim[0].save(os.path.join(hwd,imsrc))
+                                
+
+
+                def handle_endtag(self, tag):
+                    if tag == "body":
+                        self.inBody = False
+            
+            imstyles = '''img style="vertical-align:middle"'''
+            imstyler = '''img class="equation_image"'''
+
+            srcstrs = '''src="https://latex.codecogs.com/png.latex\?'''
+            srcstrr = '''src="https://canvas.cornell.edu/equation_images/'''
+
+            parser = MyHTMLParser()
+            out = []
+            for l in lines:
+                buh = parser.feed(l)
+                if parser.inBody:
+                    out.append(re.sub(srcstrs,srcstrr,re.sub(imstyles,imstyler,l)).strip())
+            desc = desc+" ".join(out[1:])
+
 
         hw = self.createAssignment(hwname,hwgroup.id,points_possible=10,description=desc,\
                 due_at=duedate,unlock_at=unlockAt, submission_types=['online_upload'])
@@ -1318,7 +1391,7 @@ class cornellGrading():
             try:
                 hwfolder = self.getFolder("Homeworks")
             except:
-                hwfolder = self.createFolder("Homeworks")
+                hwfolder = self.createFolder("Homeworks",hidden=True)
 
             res = hwfolder.upload(solutions) 
 

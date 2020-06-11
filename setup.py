@@ -36,6 +36,9 @@ setuptools.setup(
           'requests',
           
     ],
+    extras_require={
+        "latex2html":  ["pdf2image", "Pillow"]
+    },
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",

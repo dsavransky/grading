@@ -18,6 +18,12 @@ or, to install in developer mode:
 pip install --user -e .
 ```
 
+In order to also install requirements needed push LaTeX into Canvas HTML, do:
+
+```
+pip install --user -e .[latex2html]
+```
+
 
 Canvas API Token
 ===================
@@ -106,6 +112,19 @@ res = c.uploadHW(assignmentNum,duedate,hwfile,totscore=N) #N must be an integer
 res = c.uploadHW(assignmentNum,duedate,hwfile,unlockDelta=M) 
 #where M is a positive float and represents the number of days prior to the due date to unlock the assignment.
 ```
+
+### Injecting Homework Text into the Canvas Assignment
+If the homework file is a PDF compiled from LaTeX source code, and resides in the same directory as the original `tex` file, then you can inject its contents directly into the homework assignment as HTML, along with the link to the PDF, by running:
+
+```python
+res = c.uploadHW(assignmentNum,duedate,hwfile,injectText=True)
+```
+
+Caveats:
+  * `hwfile` must point at the PDF in the directory where it was compiled, and all other required files (figures, etc.) must reside in this same path.
+  * `pandoc` must be installed
+  * `cornellGrading` must have been installed with the `latex2html` extra (this also installs `pdf2image` and `Pillow`.
+  * This is absolutely not going to work for all LaTeX - only what pandoc can convert to HTML.
 
 Create a HW Survey
 --------------------

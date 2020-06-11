@@ -10,6 +10,7 @@ import requests
 import zipfile, tempfile
 import io, os, sys, re, json
 try:
+    import urllib.parse
     import subprocess
     import shutil
     from html.parser import HTMLParser
@@ -1119,46 +1120,93 @@ class cornellGrading():
             unlockAt = None
 
         if injectText:
+            #won't work if we don't have pandoc
             assert shutil.which("pandoc"),"Cannot locate pandoc"
 
+            #going to assume that the pdf file is located in the working dir with the tex
+            #and everything else that's needed for compilation
             hwd,hwf = os.path.split(hwfile)
-            texf = os.path.join(hwd,hwf.split(os.extsep)[0]+os.extsep+'tex')
-            htmlf = os.path.join(hwd,hwf.split(os.extsep)[0]+os.extsep+'html')
-            assert os.path.exists(texf), "Cannot locate LaTeX source %s"%texf
+            texf = hwf.split(os.extsep)[0]+os.extsep+'tex'
+            assert os.path.exists(os.path.join(hwd,texf)), "Cannot locate LaTeX source %s"%texf
 
+            #all new products are going into the system tmp dir
+            tmpdir = tempfile.gettempdir()
+            htmlf = os.path.join(tmpdir,hwf.split(os.extsep)[0]+os.extsep+'html')
+            
+            #run pandoc
             res = subprocess.run(["pandoc", texf, "-s", "--webtex", "-o", htmlf,\
-                    "--default-image-extension=png"],check=True,capture_output=True)
+                    "--default-image-extension=png"],cwd=hwd, check=True,capture_output=True)
             assert os.path.exists(htmlf), "Cannot locate html output %s"%htmlf
 
+            #read result
             with open(htmlf) as f:
                 lines = f.readlines()
 
+            #now we need to parse the result and fix things
             class MyHTMLParser(HTMLParser):
 
                 def __init__(self):
                     HTMLParser.__init__(self)
                     self.inBody = False
-                    self.imagesToUpload = []
+                    self.inFigcaption = False
+                    self.inSpan = False
+                    self.imagesUploaded = []
+                    self.figcaptions = []
 
                 def handle_starttag(self, tag, attrs):
                     if tag == "body":
                         self.inBody = True
                     if tag == "img":
                         imsrc = dict(attrs)['src']
+                        #anyting that's not a link must be an actual image
                         if not(imsrc.startswith("http")):
+                            #if you don't see it in the source directory, it's probably a PDF and needs
+                            #to be converted to PNG
                             if not(os.path.exists(os.path.join(hwd,imsrc))):
                                 #look for the pdf of this image
                                 imf = os.path.join(hwd,imsrc.split(os.extsep)[0]+os.extsep+'pdf')
-                                assert os.path.exists(imf),"Original image file not found: %s"%imf
-                                pilim = pdf2image.convert_from_path(os.path.join(hwd,imf), dpi=150,
-                                        output_folder=None, fmt='png', use_cropbox=False, strict=False)
-                                pilim[0].save(os.path.join(hwd,imsrc))
+                                if not os.path.exists(imf):
+                                    imf = os.path.join(hwd,imsrc.split(os.extsep)[0]+'-eps-converted-to'+os.extsep+'pdf')
+                                assert os.path.exists(imf),"Original image file not found for %s"%imsrc
                                 
+                                pilim = pdf2image.convert_from_path(imf, dpi=150,
+                                        output_folder=None, fmt='png', use_cropbox=False, strict=False)
+                                pngf = os.path.join(tmpdir,imsrc)
+                                pilim[0].save(pngf)
+                                assert os.path.exists(pngf), "Cannot locate png output %s"%htmlf
+                            else:
+                                pngf = os.path.join(hwd,imsrc)
+
+                            #push PNG up into the HW folder
+                            res = hwfolder.upload(pngf)
+                            assert res[0],"Imag upload failed: %s"%pngf
+                            self.imagesUploaded.append({"orig":imsrc,\
+                                                       "url":res[1]['preview_url'].split('/file_preview')[0]})
+
+                    if tag == "figcaption":
+                        self.inFigcaption = True
+
+                    if tag == "span":
+                        self.inSpan = True
+
 
 
                 def handle_endtag(self, tag):
                     if tag == "body":
                         self.inBody = False
+
+                    if tag == "figcaption":
+                        self.inFigcaption = False
+
+                    if tag == "span":
+                        self.inSpan = False
+
+
+                def handle_data(self, data):
+                    if self.inFigcaption and not(self.inSpan):
+                        self.figcaptions.append(data)
+
+                #end MyHTMLParser
             
             imstyles = '''img style="vertical-align:middle"'''
             imstyler = '''img class="equation_image"'''
@@ -1166,12 +1214,27 @@ class cornellGrading():
             srcstrs = '''src="https://latex.codecogs.com/png.latex\?'''
             srcstrr = '''src="https://canvas.cornell.edu/equation_images/'''
 
+
+            p = re.compile('src="https://latex.codecogs.com/png.latex\?(.*?)"') 
+            convlatex = lambda x: re.sub(x.groups()[0], urllib.parse.quote(x.groups()[0]), x.group())
+
             parser = MyHTMLParser()
             out = []
             for l in lines:
                 buh = parser.feed(l)
                 if parser.inBody:
-                    out.append(re.sub(srcstrs,srcstrr,re.sub(imstyles,imstyler,l)).strip())
+                    tmp = p.sub(convlatex,l)
+                    tmp = re.sub(srcstrs,srcstrr,re.sub(imstyles,imstyler,tmp)).strip()
+                    while parser.imagesUploaded:
+                        imup = parser.imagesUploaded.pop()
+                        figcap = parser.figcaptions.pop()
+                        tmp = re.sub(r'src="{0}"'.format(imup['orig']),\
+                                     r'src="https://canvas.cornell.edu{0}/preview" data-api-endpoint="https://canvas.cornell.edu/api/v1{0}" data-api-returntype="File" '.format(imup['url']), tmp)
+                        tmp = re.sub(r'alt=""',r'alt="{0}"'.format(figcap),tmp)
+
+                    out.append(tmp)
+
+
             desc = desc+" ".join(out[1:])
 
 

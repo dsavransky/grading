@@ -24,6 +24,7 @@ In order to also install requirements needed push LaTeX into Canvas HTML, do:
 pip install --user -e .[latex2html]
 ```
 
+The `latex2html` option requires the pandoc executable to be installed and in the system PATH.  For detailed pandoc installation instructions see here: https://pandoc.org/installing.html
 
 Canvas API Token
 ===================

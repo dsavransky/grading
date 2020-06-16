@@ -1,7 +1,7 @@
 # grading
-Routines for semi-automated grading of MATLAB coding assignments and interaction with Canvas and Qualtrics
+Routines for semi-automated grading of MATLAB coding assignments and interaction with Canvas and Qualtrics.
 
-Please note: the Canvas routines have the potential to bork your gradebook. Use at your own risk. 
+Please note: the Canvas routines have the potential to bork your gradebook and (unlikely but possibly) whole course site. **Use at your own risk**. 
 
 
 cornellGrading Installation
@@ -57,7 +57,7 @@ In Canvas:
 * Navigate to Settings>Course Details, scroll to the very bottom, click 'more options', and check 'Hide totals in student grades summary'. Click 'Updated Course Details'
 * Navigate to Settings>Navigation and ensure that 'Grades' and 'Assignments' are both in the active items (top part of page).  If you want students to be able to directly access files (rather than only via links), then add 'Files' to the active navigation items as well. Don't forget to click 'Save' at the bottom of the page.
 * Go to Student View (button on right-hand side of home page), exit student view, and then ensure that the 'test student' appears in People when you are back in Instructor view (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
-* Navigate to Grades.  Click the settings icon (right of the search box) and go to the 'Grade Posting Policy tab'. Ensure that 'Automatically Post Grades' is clicked (this allows for students to see comments on HWs before grades are entered, which is necessary for link injection to the self-grading surveys. Be sure to click 'Update' if any changes are made.
+* Navigate to Grades.  Click the settings icon (right of the search box) and go to the 'Grade Posting Policy tab'. Ensure that 'Automatically Post Grades' is clicked (this allows for students to see comments on HWs before grades are entered, which is necessary for link injection to the self-grading surveys). Be sure to click 'Update' if any changes are made.
 
 Now, in python:
 
@@ -79,7 +79,7 @@ c.getCourse(coursenum)
 print(c.coursename) #should be the course name you set in Canvas
 print(c.names) #should be all your students
 
-#connect to qualtrics
+#connect to qualtrics (skip if you don't care about qualtrics)
 c.setupQualtrics() 
 
 #generate course mailing list
@@ -141,10 +141,10 @@ c.setupQualtrics()
 assignmentNum = 1 #change to actual assignment number
 nprobs = 3 #number of problems in assignment
 c.setupPrivateHW(assignmentNum,nprobs)
+```
 
-#or, let's say you're a weirdo who only wants a single grade for the whole assignment, 
-#and wants the students to grade themselves out of 10,9,7,5,3, exclusively.  
-#Then the last line becomes:
+Or, let's say you're a weirdo who only wants a single grade for the whole assignment, and wants the students to grade themselves out of 10,9,7,5,3, exclusively.  Then the last line becomes:
+```
 c.setupPrivateHW(assignmentNum,0,scoreOptions=[10,9,7,5,3])
 ```
 

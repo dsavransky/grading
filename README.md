@@ -3,6 +3,9 @@ Routines for semi-automated grading of MATLAB coding assignments and interaction
 
 Please note: the Canvas routines have the potential to bork your gradebook and (unlikely but possibly) whole course site. **Use at your own risk**. 
 
+[![Documentation Status](https://readthedocs.org/projects/grading/badge/?version=latest)](https://grading.readthedocs.io/en/latest/?badge=latest)
+
+Docstrings: https://grading.readthedocs.io/en/latest/cornellGrading.html#module-cornellGrading.cornellGrading
 
 cornellGrading Installation
 ==============================

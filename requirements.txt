@@ -1,0 +1,8 @@
+numpy
+pandas
+keyring
+pytz
+canvasapi
+requests
+pdf2image
+Pillow

@@ -262,7 +262,7 @@ class cornellGrading():
         subFolders = [t.name for t in tmp]
 
         if folderName in subFolders:
-            print("Folder %s already exists"%folderName)
+            #print("Folder %s already exists"%folderName)
             return tmp[int(np.where(np.array(subFolders) == folderName)[0][0])]
 
         folder = self.course.create_folder(folderName,parent_folder_id=str(parent.id),hidden=hidden)
@@ -290,6 +290,8 @@ class cornellGrading():
                 duh (defaults True)
             description (str):
                 The html assignment text.  Not added if None (default).
+            allowed_extensions (list):
+                List of strings for allowed extensions
             due_at (datetime.datetime):
                 Due date (not included if None). Must be timezone aware and UTC!
             unlock_at (datetime.datetime):
@@ -304,11 +306,9 @@ class cornellGrading():
             https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.create
         """
 
-
         assert isinstance(submission_types,list),"submission_types must be a list."
         if allowed_extensions:
             assert isinstance(allowed_extensions,list),"allowed_extensions must be a list."
-
 
         #create payload
         assignment = {'name':name,
@@ -336,6 +336,105 @@ class cornellGrading():
         res = self.course.create_assignment(assignment=assignment)
 
         return res
+
+    def createPage(self,title,body,editing_roles="teachers",\
+                         published=False):
+        """ Create an assignment
+    
+        Args:
+            title (str):
+                Page title
+            body (str):
+                Content of page (html formatted string)
+            editing_roles (str):
+                See canvas API. Comma sepeated string, defaults to "teachers"
+            published (bool):
+                Whether page is published on create (defaults True)
+
+        Returns:
+            canvasapi.page.Page:
+                The new page object
+
+        Notes:
+            https://canvas.instructure.com/doc/api/pages.html#method.wiki_pages_api.create
+
+            If the title is the same as an existing page, Canvas will automatically append
+            "-?" to the title, where ? is an incrementing integer.
+        """
+
+        assert isinstance(editing_roles,str),"editing_roles must be a string."
+        
+        wiki_page = {'title':title,
+                     'body':body,
+                     'editing_roles':editing_roles,
+                     'published':published}
+
+        res = self.course.create_page(wiki_page=wiki_page)
+
+        return res
+
+
+    def latex2page(self,fname,title,folder="Images",hidden=True,\
+                    editing_roles="teachers",published=False,insertPDF=False):
+        """ Generate a new canvas page out of a LaTex source file
+
+        Args:
+            fname (str):
+                Full path of filename to process.  If it has a PDF extension, assume that
+                we're looking for the same filename .tex in the same directory.  Otherwise,
+                assumes that you're giving it the source file.
+            title (str):
+                Page title
+            folder (str):
+                Canvas folder to upload any images or other supporting material to.
+                Defaults to Images.  If the folder does not exist, it will be created.
+                See createFolder for details.
+            hidden (bool):
+                If the folder for image upload doesn't exist and needs to be created, 
+                it will have student visibility set by hidden. Defaults True (not visible
+                to students without link).
+            editing_roles (str):
+                See canvas API. Comma sepeated string, defaults to "teachers"
+            published (bool):
+                Whether page is published on create (defaults False)
+            insertPDF (bool):
+                If true, also include the original file in the page (this assumes that fname
+                points at the compiled PDF and not the source).
+
+        Returns:
+            canvasapi.page.Page:
+                The new page object
+
+        Notes:
+            Requires pandoc to be installed and callable!
+            NB: Uploaded files will overwrite files of the same name in the upload folder
+        """
+
+        
+        if insertPDF:
+            #grab the folder
+            upfolder = self.createFolder(folder,hidden=hidden)
+            res = upfolder.upload(fname) 
+            assert res[0],"File upload failed."
+
+            upurl = res[1]['url']
+            upfname = res[1]['filename']
+            upepoint = upurl.split('/download')[0]
+
+            body = """<p>Downloadable Assignment: <a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(upfname,upurl,upepoint)
+        else:
+            body = ""
+
+
+        out = self.latex2html(fname,folder=folder,hidden=hidden)
+        body += " ".join(out)
+
+        res = self.createPage(title,body,editing_roles=editing_roles,published=published)
+
+        return res
+
+
+
 
     def matlabImport(self,assignmentNum,gradercsv,duedate):
         """ MATLAB grader grade import. Create the assignment in the MATLAB

@@ -66,7 +66,8 @@ class cornellGrading():
                 >> for cn in c.canvas.get_courses(): print(cn)
             coursename (str):
                 Short course name for use in creating surveys, etc.
-                
+        Returns:
+            None
     
         """
 
@@ -113,8 +114,8 @@ class cornellGrading():
                 pyzt timezone string (defaults to US/Eastern)
         
         Returns:
-            datetime.datetime
-                tzinfo will be <UTC>!
+            datetime.datetime:
+                A time object. tzinfo will be <UTC>!
                     
         """
         local = pytz.timezone(tz)
@@ -206,7 +207,7 @@ class cornellGrading():
                 To see all assignments do:
                 >> for a in c.course.get_folders(): print(a.name) 
         Returns:
-            canvasapi.folder.Folder
+            canvasapi.folder.Folder:
                 The folder object
                     
         """
@@ -238,7 +239,7 @@ class cornellGrading():
                 Whether to toggle to hidden (false by default). If parent folder is hidden, 
                 you cannot make the subfolder visible.
         Returns:
-            canvasapi.folder.Folder
+            canvasapi.folder.Folder:
                 The folder object
 
         Notes:
@@ -296,7 +297,8 @@ class cornellGrading():
 
 
         Returns:
-            canvasapi.assignment.Assignment
+            canvasapi.assignment.Assignment:
+                The assignment object
 
         Notes:
             https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.create
@@ -500,7 +502,8 @@ class cornellGrading():
             None
 
         Returns:
-            requests.models.Response
+            requests.models.Response:
+                The response object with the surveys.
                 
         """
 
@@ -563,7 +566,8 @@ class cornellGrading():
             None
 
         Returns:
-            requests.models.Response
+            requests.models.Response:
+                response object with all mailing lists
                 
         """
 

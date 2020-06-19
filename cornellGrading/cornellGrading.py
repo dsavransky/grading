@@ -1,89 +1,105 @@
 import pandas
 import numpy as np
-import getpass,keyring
+import getpass
+import keyring
 import time
 from datetime import datetime, timedelta
 import pytz
-from canvasapi import Canvas 
-from canvasapi.exceptions import InvalidAccessToken 
+from canvasapi import Canvas
+from canvasapi.exceptions import InvalidAccessToken
 import requests
-import zipfile, tempfile
-import io, os, sys, re, json
+import zipfile
+import tempfile
+import io
+import os
+import re
+import warnings
+
 try:
     import urllib.parse
     import subprocess
     import shutil
     from html.parser import HTMLParser
     import pdf2image
-    from PIL import Image
-except:
+except ImportError:
     pass
 
-class cornellGrading():
-    """ Class for io methods for Canvas and Qualtrics 
-    
+
+class cornellGrading:
+    """ Class for io methods for Canvas and Qualtrics
+
         Args:
             canvasurl (str):
-                Base url for canvas API calls.  
+                Base url for canvas API calls.
                 Defaults to https://canvas.cornell.edu
-    
+
     """
 
-    def __init__(self,canvasurl="https://canvas.cornell.edu"):
-        """ Ask for token, store it if you can connect, and 
-        save resulting canvas object 
-        
+    def __init__(self, canvasurl="https://canvas.cornell.edu"):
+        """ Ask for token, store it if you can connect, and
+        save resulting canvas object
+
         To generate token: in Canvas: Settings>Account>Approved Integrations
-        Click '+New Access Token'.  Copy the token.  It won't be displayed again.
+        Click '+New Access Token'.  Copy the token.
+
+        .. warning::
+            The token will *not* be displayed again. However, it will be saved securely
+            in your keychain as soon as the first successful connection is made.
+
+        .. warning::
+            Windows users have reported issues copying and pasting this token into the
+            command prompt.  It may be safest to just retype it into the prompt.
+
         """
 
-        token = keyring.get_password('canvas_test_token1', 'canvas')
+        token = keyring.get_password("canvas_test_token1", "canvas")
         if token is None:
             token = getpass.getpass("Enter canvas token:\n")
             try:
-                canvas = Canvas(canvasurl,token)
+                canvas = Canvas(canvasurl, token)
                 canvas.get_current_user()
-                keyring.set_password('canvas_test_token1', 'canvas', token)
+                keyring.set_password("canvas_test_token1", "canvas", token)
                 print("Connected.  Token Saved")
             except InvalidAccessToken:
                 print("Could not connect. Token not saved.")
         else:
-            canvas = Canvas(canvasurl,token)
+            canvas = Canvas(canvasurl, token)
             canvas.get_current_user()
             print("Connected to Canvas.")
 
         self.canvas = canvas
 
-
     def getCourse(self, coursenum):
         """ Access course and load all student names, ids and netids
-    
+
         Args:
             coursenum (int):
                 Canvas course number to access. This can be looked
                 up in Canvas, or you can look up all your courses:
-                >> c = cornellGrading.cornellGrading() 
-                >> for cn in c.canvas.get_courses(): print(cn)
-            coursename (str):
-                Short course name for use in creating surveys, etc.
+
+                .. code-block:: python
+
+                    >>> c = cornellGrading.cornellGrading()
+                    >>> for cn in c.canvas.get_courses(): print(cn)
+
         Returns:
             None
-    
+
         """
 
-        assert isinstance(coursenum,int), "coursenum must be an int"
+        assert isinstance(coursenum, int), "coursenum must be an int"
 
-        #get the course
+        # get the course
         course = self.canvas.get_course(coursenum)
-        tmp = course.get_users(include=["enrollments","test_student"]) 
+        tmp = course.get_users(include=["enrollments", "test_student"])
         names = []
         ids = []
         netids = []
         for t in tmp:
-            isstudent=False
+            isstudent = False
             for e in t.enrollments:
-                if e['course_id'] == coursenum:
-                    isstudent = e['role'] == 'StudentEnrollment'
+                if e["course_id"] == coursenum:
+                    isstudent = e["role"] == "StudentEnrollment"
 
             if isstudent:
                 names.append(t.sortable_name)
@@ -101,7 +117,7 @@ class cornellGrading():
 
         self.coursename = course.name
 
-    def localizeTime(self,duedate,duetime="17:00:00", tz="US/Eastern"):
+    def localizeTime(self, duedate, duetime="17:00:00", tz="US/Eastern"):
         """ Helper method for setting the proper UTC time while being
         DST-aware
 
@@ -112,22 +128,22 @@ class cornellGrading():
                 Time in HH-mm-SS format (default 17:00:00)
             tz (str):
                 pyzt timezone string (defaults to US/Eastern)
-        
+
         Returns:
             datetime.datetime:
                 A time object. tzinfo will be <UTC>!
-                    
+
         """
         local = pytz.timezone(tz)
-        naive = datetime.strptime(duedate+" "+duetime, "%Y-%m-%d %H:%M:%S")
+        naive = datetime.strptime(duedate + " " + duetime, "%Y-%m-%d %H:%M:%S")
         local_dt = local.localize(naive, is_dst=None)
-        utc_dt = local_dt.astimezone(pytz.utc)              
+        utc_dt = local_dt.astimezone(pytz.utc)
 
         return utc_dt
-    
-    def getAssignment(self,assignmentName):
+
+    def getAssignment(self, assignmentName):
         """ Locate assignment by name
-    
+
         Args:
             assignmentName (str):
                 Name of assignment to return.  Must be exact match.
@@ -136,9 +152,8 @@ class cornellGrading():
         Returns:
             canvasapi.assignment.Assignment:
                 The Assignment object
-                    
-        """
 
+        """
 
         tmp = self.course.get_assignments(search_term=assignmentName)
         hw = None
@@ -147,25 +162,24 @@ class cornellGrading():
                 hw = t
                 break
 
-        assert hw is not None,"Could not find assignment."
+        assert hw is not None, "Could not find assignment."
 
         return hw
 
-
-    def getAssignmentGroup(self,groupName):
+    def getAssignmentGroup(self, groupName):
         """ Locate assignment group by name
-    
+
         Args:
             groupName (str):
                 Name of assignment group to return.  Must be exact match.
                 To see all assignments do:
-                >> for a in c.course.get_assignment_groups(): print(a) 
+                >> for a in c.course.get_assignment_groups(): print(a)
         Returns:
             canvasapi.assignment.AssignmentGroup:
                 The assignment group object
-                    
+
         """
-        
+
         tmp = self.course.get_assignment_groups()
         group = None
         for t in tmp:
@@ -173,45 +187,46 @@ class cornellGrading():
                 group = t
                 break
 
-        assert group is not None,"Could not find assignment group %s"%groupName
+        assert group is not None, "Could not find assignment group %s" % groupName
 
         return group
 
-    
-    def createAssignmentGroup(self,groupName):
+    def createAssignmentGroup(self, groupName):
         """ Create assignment group by name
-    
+
         Args:
             assignmentGroup (str):
                 Name of assignment group to create. Cannot be name of existing group
         Returns:
             canvasapi.assignment.AssignmentGroup:
                 The assignment group object
-                    
+
         """
         tmp = self.course.get_assignment_groups()
         currGroups = [t.name for t in tmp]
 
-        assert groupName not in currGroups,"Assignment group %s already exists"%groupName
+        assert groupName not in currGroups, (
+            "Assignment group %s already exists" % groupName
+        )
 
         group = self.course.create_assignment_group(name=groupName)
-        
+
         return group
 
-    def getFolder(self,folderName):
+    def getFolder(self, folderName):
         """ Locate folder by name
-    
+
         Args:
              (str):
                 Name of folder to return.  Must be exact match.
                 To see all assignments do:
-                >> for a in c.course.get_folders(): print(a.name) 
+                >> for a in c.course.get_folders(): print(a.name)
         Returns:
             canvasapi.folder.Folder:
                 The folder object
-                    
+
         """
-        
+
         tmp = self.course.get_folders()
         folder = None
         for t in tmp:
@@ -219,41 +234,44 @@ class cornellGrading():
                 folder = t
                 break
 
-        assert folder is not None,"Could not find folder %s"%folderName
+        assert folder is not None, "Could not find folder %s" % folderName
 
         return folder
 
-
-    def createFolder(self,folderName,parentFolder='course files',hidden=False):
+    def createFolder(self, folderName, parentFolder="course files", hidden=False):
         """ Create folder by name
-    
+
         Args:
             folderName (str):
                 Name of folder to create. Cannot be name of existing folder.
                 Name can be nested (i.e., "Homework/HW1"), in which case createFolder
                 will be called recursively until the folder is created. Do not put a
-                leading slash on paths (they will always be relative to the parentFolder).
+                leading slash on paths (they will always be relative to the
+                parentFolder).
             parentFolder (str):
                 Name of parent folder to create in.
             hidden (bool):
-                Whether to toggle to hidden (false by default). If parent folder is hidden, 
-                you cannot make the subfolder visible.
+                Whether to toggle to hidden (false by default). If parent folder is
+                hidden, you cannot make the subfolder visible.
         Returns:
             canvasapi.folder.Folder:
                 The folder object
 
         Notes:
-            Currently, all individual folder names should be unique (i.e., you shouldn't have
-            "HW1" in multiple heirarchies, as all folder listing is flattened).  
+            Currently, all individual folder names should be unique (i.e., you shouldn't
+            have "HW1" in multiple heirarchies, as all folder listing is flattened).
+
             TODO: Fix this as soon as canvaspai wraps resolve_path
             https://github.com/ucfopen/canvasapi/issues/375
-                    
+
         """
-        
-        #recurse down any paths given
+
+        # recurse down any paths given
         if "/" in folderName:
             folders = folderName.split("/")
-            res = self.createFolder("/".join(folders[:-1]),parentFolder=parentFolder,hidden=hidden)
+            _ = self.createFolder(
+                "/".join(folders[:-1]), parentFolder=parentFolder, hidden=hidden
+            )
             parentFolder = folders[-2]
             folderName = folders[-1]
 
@@ -262,25 +280,34 @@ class cornellGrading():
         subFolders = [t.name for t in tmp]
 
         if folderName in subFolders:
-            #print("Folder %s already exists"%folderName)
+            # print("Folder %s already exists"%folderName)
             return tmp[int(np.where(np.array(subFolders) == folderName)[0][0])]
 
-        folder = self.course.create_folder(folderName,parent_folder_id=str(parent.id),hidden=hidden)
-        
+        folder = self.course.create_folder(
+            folderName, parent_folder_id=str(parent.id), hidden=hidden
+        )
+
         return folder
 
-
-    def createAssignment(self,name,groupid,submission_types=["none"],\
-                         points_possible=10,published=True,description=None,\
-                         allowed_extensions = None,\
-                         due_at = None, unlock_at = None):
+    def createAssignment(
+        self,
+        name,
+        groupid,
+        submission_types=["none"],
+        points_possible=10,
+        published=True,
+        description=None,
+        allowed_extensions=None,
+        due_at=None,
+        unlock_at=None,
+    ):
         """ Create an assignment
-    
+
         Args:
             name (str):
                 Name of assignment.
             groupid (int):
-                Assignment group to put assignment in.  Get group via 
+                Assignment group to put assignment in.  Get group via
                 getAssignmentGroup, and then use group.id attribute.
             submission_types (list):
                 See canvas API. Defaults to None.
@@ -306,41 +333,44 @@ class cornellGrading():
             https://canvas.instructure.com/doc/api/assignments.html#method.assignments_api.create
         """
 
-        assert isinstance(submission_types,list),"submission_types must be a list."
+        assert isinstance(submission_types, list), "submission_types must be a list."
         if allowed_extensions:
-            assert isinstance(allowed_extensions,list),"allowed_extensions must be a list."
+            assert isinstance(
+                allowed_extensions, list
+            ), "allowed_extensions must be a list."
 
-        #create payload
-        assignment = {'name':name,
-                      'submission_types':submission_types,
-                      'points_possible':points_possible,
-                      'assignment_group_id':groupid,
-                      'published':published}
+        # create payload
+        assignment = {
+            "name": name,
+            "submission_types": submission_types,
+            "points_possible": points_possible,
+            "assignment_group_id": groupid,
+            "published": published,
+        }
 
         if points_possible == 0:
-            assignment['grading_type'] = 'not_graded'
-            assignment['submission_types'] = ["not_graded"]
+            assignment["grading_type"] = "not_graded"
+            assignment["submission_types"] = ["not_graded"]
 
         if description:
-            assignment['description'] = description
+            assignment["description"] = description
 
         if due_at:
-            assignment['due_at'] = due_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+            assignment["due_at"] = due_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         if unlock_at:
-            assignment['unlock_at'] = unlock_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+            assignment["unlock_at"] = unlock_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         if allowed_extensions:
-            assignment['allowed_extensions'] = allowed_extensions
+            assignment["allowed_extensions"] = allowed_extensions
 
         res = self.course.create_assignment(assignment=assignment)
 
         return res
 
-    def createPage(self,title,body,editing_roles="teachers",\
-                         published=False):
+    def createPage(self, title, body, editing_roles="teachers", published=False):
         """ Create an assignment
-    
+
         Args:
             title (str):
                 Page title
@@ -358,48 +388,57 @@ class cornellGrading():
         Notes:
             https://canvas.instructure.com/doc/api/pages.html#method.wiki_pages_api.create
 
-            If the title is the same as an existing page, Canvas will automatically append
-            "-?" to the title, where ? is an incrementing integer.
+            If the title is the same as an existing page, Canvas will automatically
+            append "-?" to the title, where ? is an incrementing integer.
         """
 
-        assert isinstance(editing_roles,str),"editing_roles must be a string."
-        
-        wiki_page = {'title':title,
-                     'body':body,
-                     'editing_roles':editing_roles,
-                     'published':published}
+        assert isinstance(editing_roles, str), "editing_roles must be a string."
+
+        wiki_page = {
+            "title": title,
+            "body": body,
+            "editing_roles": editing_roles,
+            "published": published,
+        }
 
         res = self.course.create_page(wiki_page=wiki_page)
 
         return res
 
-
-    def latex2page(self,fname,title,folder="Images",hidden=True,\
-                    editing_roles="teachers",published=False,insertPDF=False):
+    def latex2page(
+        self,
+        fname,
+        title,
+        folder="Images",
+        hidden=True,
+        editing_roles="teachers",
+        published=False,
+        insertPDF=False,
+    ):
         """ Generate a new canvas page out of a LaTex source file
 
         Args:
             fname (str):
-                Full path of filename to process.  If it has a PDF extension, assume that
-                we're looking for the same filename .tex in the same directory.  Otherwise,
-                assumes that you're giving it the source file.
+                Full path of filename to process.  If it has a PDF extension, assume
+                that we're looking for the same filename .tex in the same directory.
+                Otherwise, assumes that you're giving it the source file.
             title (str):
                 Page title
             folder (str):
                 Canvas folder to upload any images or other supporting material to.
                 Defaults to Images.  If the folder does not exist, it will be created.
-                See createFolder for details.
+                See :py:meth:`cornellGrading.cornellGrading.createFolder` for details.
             hidden (bool):
-                If the folder for image upload doesn't exist and needs to be created, 
-                it will have student visibility set by hidden. Defaults True (not visible
-                to students without link).
+                If the folder for image upload doesn't exist and needs to be created,
+                it will have student visibility set by hidden. Defaults True (not
+                visible to students without link).
             editing_roles (str):
                 See canvas API. Comma sepeated string, defaults to "teachers"
             published (bool):
                 Whether page is published on create (defaults False)
             insertPDF (bool):
-                If true, also include the original file in the page (this assumes that fname
-                points at the compiled PDF and not the source).
+                If true, also include the original file in the page (this assumes that
+                fname points at the compiled PDF and not the source).
 
         Returns:
             canvasapi.page.Page:
@@ -407,39 +446,44 @@ class cornellGrading():
 
         Notes:
             Requires pandoc to be installed and callable!
-            NB: Uploaded files will overwrite files of the same name in the upload folder
+
+        .. warning::
+            Uploaded files will overwrite files of the same name in the upload folder.
+
         """
 
-        
         if insertPDF:
-            #grab the folder
-            upfolder = self.createFolder(folder,hidden=hidden)
-            res = upfolder.upload(fname) 
-            assert res[0],"File upload failed."
+            # grab the folder
+            upfolder = self.createFolder(folder, hidden=hidden)
+            res = upfolder.upload(fname)
+            assert res[0], "File upload failed."
 
-            upurl = res[1]['url']
-            upfname = res[1]['filename']
-            upepoint = upurl.split('/download')[0]
+            upurl = res[1]["url"]
+            upfname = res[1]["filename"]
+            upepoint = upurl.split("/download")[0]
 
-            body = """<p>Downloadable Assignment: <a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(upfname,upurl,upepoint)
+            body = (
+                """<p>Downloadable Assignment: <a class="instructure_file_link """
+                """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
+                """data-api-endpoint="{2}" data-api-returntype="File">{0}</a>"""
+                """</p>""".format(upfname, upurl, upepoint)
+            )
         else:
             body = ""
 
-
-        out = self.latex2html(fname,folder=folder,hidden=hidden)
+        out = self.latex2html(fname, folder=folder, hidden=hidden)
         body += " ".join(out)
 
-        res = self.createPage(title,body,editing_roles=editing_roles,published=published)
+        res = self.createPage(
+            title, body, editing_roles=editing_roles, published=published
+        )
 
         return res
 
-
-
-
-    def matlabImport(self,assignmentNum,gradercsv,duedate):
+    def matlabImport(self, assignmentNum, gradercsv, duedate):
         """ MATLAB grader grade import. Create the assignment in the MATLAB
         group and upload grades to it.
-    
+
         Args:
             assignmentNum (int):
                 Number of assignment. Name will be "MATLAB N"
@@ -451,63 +495,67 @@ class cornellGrading():
             None
 
         Notes:
-            In assignment main page: Actions>Report. 
+            In assignment main page: Actions>Report.
             Choose 'Best solution as of today', Output:csv
 
-            If anyone was allowed a late submission, change the Late column entry to 'N'.
+            If anyone was allowed a late submission, change the Late column entry to 'N'
 
-            NB: We are assuming that the timezone on your machine matches the timezone of
-            the grader submitted time column.  If there is a mismatch, there will be errors.
+        .. warning::
+            We are assuming that the timezone on your machine matches the timezone
+            of the grader submitted time column.  If there is a mismatch, there will be
+            errors.
         """
 
-        
         duedate = self.localizeTime(duedate)
 
-        name = "MATLAB "+str(assignmentNum)
+        name = "MATLAB " + str(assignmentNum)
         try:
             ass = self.getAssignment(name)
         except AssertionError:
             mg = self.getAssignmentGroup("MATLAB Assignments")
-            ass = self.createAssignment(name,mg.id)
+            ass = self.createAssignment(name, mg.id)
 
-        #process grader output
+        # process grader output
         grader = pandas.read_csv(gradercsv)
-        
-        #on windows, EDT/EST aren't in time.tzname, so we're going to
-        #parse the grader timestring manually and then force localization
-        timep = re.compile('(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) \S*')
+
+        # on windows, EDT/EST aren't in time.tzname, so we're going to
+        # parse the grader timestring manually and then force localization
+        timep = re.compile(r"(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) \S*")
         timetmp = []
-        for t in grader['Submitted Time']:
+        for t in grader["Submitted Time"]:
             tmp = timep.match(t)
-            timetmp.append(self.localizeTime(tmp.groups()[0],duetime=tmp.groups()[1]))
+            timetmp.append(self.localizeTime(tmp.groups()[0], duetime=tmp.groups()[1]))
 
-
-        emails = grader['Student Email'].values
-        testspassed = grader['Tests Passed'].values.astype(float)
-        tottests = grader['Total Tests'].values.astype(float)
-        probs = grader['Problem Title'].values
+        emails = grader["Student Email"].values
+        testspassed = grader["Tests Passed"].values.astype(float)
+        tottests = grader["Total Tests"].values.astype(float)
+        probs = grader["Problem Title"].values
         subtimes = np.array([(duedate - t).total_seconds() for t in timetmp])
-        islate = grader['Late Submission?'].values == 'Y'
+        islate = grader["Late Submission?"].values == "Y"
 
         uprobs = np.unique(probs)
         uemails = np.unique(emails)
-        
-        netids = np.array([e.split('@')[0] for e in uemails])
+
+        netids = np.array([e.split("@")[0] for e in uemails])
         scores = np.zeros(netids.size)
         for prob in uprobs:
             tottest = np.max(tottests[probs == prob])
-            pscores = testspassed[probs == prob]/tottest
-            pscores[(subtimes[probs == prob] < -5*60.) & (islate[probs == prob])] -= 0.25
-            pscores[(subtimes[probs == prob] < -5*60. - 3*86400.) & (islate[probs == prob])] = 0
-            pscores[pscores < 0 ] = 0
+            pscores = testspassed[probs == prob] / tottest
+            pscores[
+                (subtimes[probs == prob] < -5 * 60.0) & (islate[probs == prob])
+            ] -= 0.25
+            pscores[
+                (subtimes[probs == prob] < -5 * 60.0 - 3 * 86400.0)
+                & (islate[probs == prob])
+            ] = 0
+            pscores[pscores < 0] = 0
             pemails = emails[probs == prob]
-            for e,s in zip(pemails,pscores):
-                scores[uemails == e] +=  s
-        
-        scores *= 10./len(uprobs)
+            for e, s in zip(pemails, pscores):
+                scores[uemails == e] += s
+
+        scores *= 10.0 / len(uprobs)
 
         self.uploadScores(ass, netids, scores)
-        
 
     def uploadScores(self, ass, netids, scores):
         """ Upload scores to Canvas
@@ -523,64 +571,70 @@ class cornellGrading():
             None
 
         Notes:
-            Only netids matching those found in the currently loaded course will be uplaoded.
+            Only netids matching those found in the currently loaded course will be
+            uplaoded.
         """
-        
 
-        #let's build up the submission dictionary
-        #want API structure of grade_data[<student_id>][posted_grade]
-        #this becomes grade_data = {'id (number)':{'posted_grade':'grade (number)', ...}
+        # let's build up the submission dictionary
+        # want API structure of grade_data[<student_id>][posted_grade]
+        # this becomes grade_data = {'id (number)':{'posted_grade':'grade (number)',...}
         unmatchedids = []
-        grade_data = { }
-        for i,s in zip(netids,scores):
-            if (i == i): 
-                if (i in self.netids):
-                    grade_data['%d'%self.ids[self.netids == i]] = {'posted_grade':'%f'%s}
+        grade_data = {}
+        for i, s in zip(netids, scores):
+            if i == i:
+                if i in self.netids:
+                    grade_data["%d" % self.ids[self.netids == i]] = {
+                        "posted_grade": "%f" % s
+                    }
                 else:
                     unmatchedids.append(i)
 
         if unmatchedids:
-            print("Could not match netids: %s"%", ".join(unmatchedids))
+            print("Could not match netids: %s" % ", ".join(unmatchedids))
 
-        #send payload
+        # send payload
         print("Uploading Grades.")
         res = ass.submissions_bulk_update(grade_data=grade_data)
         self.waitForSubmit(res)
         print("Done.")
 
-
-    def waitForSubmit(self,res):
+    def waitForSubmit(self, res):
         """ Wait for async result object to finish """
-        while res.query().workflow_state != 'completed':
+        while res.query().workflow_state != "completed":
             time.sleep(0.5)
 
         return
 
-
-
-    def setupQualtrics(self, dataCenter="cornell.ca1"):
+    def setupQualtrics(
+        self, dataCenter="cornell.ca1", qualtricsapi=".qualtrics.com/API/v3/"
+    ):
         """ Save/Load qualtrics api token and verify connection
 
         Args:
             dataCenter (str):
                 Root of datacenter url.  Defaults to Cornell value.
+            qualtricsapi (str):
+                API url.  Defaults to v3 (current).
         Returns:
             None
 
         Notes:
-            The dataCenter is the leading part of the qualtrics URL before "qualtrics.com"
-            For an API token, on the qualtrics site, go to: Account Settings>Qualtrics IDs
+            The dataCenter is the leading part of the qualtrics URL before
+            "qualtrics.com"
+            For an API token, on the qualtrics site, go to:
+            Account Settings>Qualtrics IDs
             and click the 'Generate Token' button under API.
         """
 
         self.dataCenter = dataCenter
-        apiToken = keyring.get_password('qualtrics_token', 'cornell.ca1')
+        self.qualtricsapi = qualtricsapi
+        apiToken = keyring.get_password("qualtrics_token", "cornell.ca1")
         if apiToken is None:
             apiToken = getpass.getpass("Enter qualtrics token:\n")
             self.apiToken = apiToken
             res = self.listSurveys()
-            if (res.status_code == 200):
-                keyring.set_password('qualtrics_token', 'cornell.ca1', apiToken)
+            if res.status_code == 200:
+                keyring.set_password("qualtrics_token", "cornell.ca1", apiToken)
                 print("Connected. Token Saved")
         else:
             self.apiToken = apiToken
@@ -593,7 +647,6 @@ class cornellGrading():
             self.apiToken = None
             print("Could not connect.")
 
-
     def listSurveys(self):
         """ Grab all available Qualtrics surveys
 
@@ -603,13 +656,13 @@ class cornellGrading():
         Returns:
             requests.models.Response:
                 The response object with the surveys.
-                
+
         """
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/surveys".format(self.dataCenter)
+        baseUrl = "https://{0}{1}surveys".format(self.dataCenter, self.qualtricsapi)
         headers = {
             "x-api-token": self.apiToken,
-            }
+        }
         response = requests.get(baseUrl, headers=headers)
 
         return response
@@ -623,17 +676,16 @@ class cornellGrading():
         Returns:
             list:
                 All survey names
-                
+
         """
         res = self.listSurveys()
         surveynames = []
-        for el in res.json()['result']['elements']:
-            surveynames.append(el['name'])
+        for el in res.json()["result"]["elements"]:
+            surveynames.append(el["name"])
 
         return surveynames
 
-
-    def getSurveyId(self,surveyname):
+    def getSurveyId(self, surveyname):
         """ Find qualtrics survey id by name.  Matching is exact.
 
         Args:
@@ -643,20 +695,18 @@ class cornellGrading():
         Returns:
             str:
                 Unique survey id
-                
+
         """
 
         res = self.listSurveys()
         surveyid = None
-        for el in res.json()['result']['elements']:
-            if el['name'] == surveyname:
-                surveyid = el['id']
+        for el in res.json()["result"]["elements"]:
+            if el["name"] == surveyname:
+                surveyid = el["id"]
                 break
         assert surveyid, "Couldn't find survey for this assignment."
 
         return surveyid
-
-
 
     def listMailingLists(self):
         """ Grab all available Qualtrics mailing lists
@@ -667,19 +717,20 @@ class cornellGrading():
         Returns:
             requests.models.Response:
                 response object with all mailing lists
-                
+
         """
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/mailinglists".format(self.dataCenter)
+        baseUrl = "https://{0}{1}mailinglists".format(
+            self.dataCenter, self.qualtricsapi,
+        )
         headers = {
             "x-api-token": self.apiToken,
-            }
+        }
         response = requests.get(baseUrl, headers=headers)
 
         return response
 
-
-    def getMailingListId(self,listname):
+    def getMailingListId(self, listname):
         """ Find qualtrics mailinglist id by name.  Matching is exact.
 
         Args:
@@ -689,22 +740,21 @@ class cornellGrading():
         Returns:
             str:
                 Unique list id
-                
+
         """
 
         res = self.listMailingLists()
         mailinglistid = None
-        for el in res.json()['result']['elements']:
-            if el['name'] == listname:
-                mailinglistid = el['id']
+        for el in res.json()["result"]["elements"]:
+            if el["name"] == listname:
+                mailinglistid = el["id"]
                 break
         assert mailinglistid, "Couldn't find this mailing list."
 
         return mailinglistid
 
-
     def genCourseMailingList(self):
-        """ Generates a qualtrics mailing list with all the netids from the course 
+        """ Generates a qualtrics mailing list with all the netids from the course
 
         Args:
            None
@@ -714,26 +764,26 @@ class cornellGrading():
 
         """
 
-        #check that this one doesn't already exist
+        # check that this one doesn't already exist
         res = self.listMailingLists()
-        assert self.coursename not in [el['name'] for el in res.json()['result']['elements']],\
-                "Mailing list already exists for this course."
+        assert self.coursename not in [
+            el["name"] for el in res.json()["result"]["elements"]
+        ], "Mailing list already exists for this course."
 
-        
         names = np.array([n.split(", ") for n in self.names])
-        emails = np.array([nid+'@cornell.edu' for nid in self.netids])
-        firstNames = names[:,1]
-        lastNames = names[:,0]
+        emails = np.array([nid + "@cornell.edu" for nid in self.netids])
+        firstNames = names[:, 1]
+        lastNames = names[:, 0]
 
         mailingListId = self.genMailingList(self.coursename)
 
-        for fN,lN,em in zip(firstNames,lastNames,emails):
-            self.addListContact(mailingListId,fN,lN,em)
-        
-        #out = {'FirstName':names[:,1],'LastName':names[:,0],'PrimaryEmail':emails}
-        #out = pandas.DataFrame(out)
-        #out.to_csv(outfile,encoding="utf-8",index=False)
-        
+        for fN, lN, em in zip(firstNames, lastNames, emails):
+            self.addListContact(mailingListId, fN, lN, em)
+
+        # out = {'FirstName':names[:,1],'LastName':names[:,0],'PrimaryEmail':emails}
+        # out = pandas.DataFrame(out)
+        # out.to_csv(outfile,encoding="utf-8",index=False)
+
     def updateCourseMailingList(self):
         """ Compares course qualtrics mailing list to current roster and updates
         as needed
@@ -751,40 +801,54 @@ class cornellGrading():
         headers = {
             "x-api-token": self.apiToken,
             "content-type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
-        tmp = requests.get( "https://{0}.qualtrics.com/API/v3/mailinglists/{1}/contacts".format(self.dataCenter,mailingListId), headers=headers)
+        tmp = requests.get(
+            "https://{0}{2}mailinglists/{1}/contacts".format(
+                self.dataCenter, mailingListId, self.qualtricsapi,
+            ),
+            headers=headers,
+        )
 
         listids = []
         listemails = []
 
-        for el in tmp.json()['result']['elements']:
-            listids.append(el['id'])
-            listemails.append(el['email'])
+        for el in tmp.json()["result"]["elements"]:
+            listids.append(el["id"])
+            listemails.append(el["email"])
 
         names = np.array([n.split(", ") for n in self.names])
-        emails = np.array([nid+'@cornell.edu' for nid in self.netids])
-        firstNames = names[:,1]
-        lastNames = names[:,0]
+        emails = np.array([nid + "@cornell.edu" for nid in self.netids])
+        firstNames = names[:, 1]
+        lastNames = names[:, 0]
 
         missing = list(set(emails) - set(listemails))
         if missing:
             for m in missing:
                 ind = emails == m
-                self.addListContact(mailingListId,firstNames[ind][0],lastNames[ind][0],m)
+                self.addListContact(
+                    mailingListId, firstNames[ind][0], lastNames[ind][0], m
+                )
 
         extra = list(set(listemails) - set(emails))
         if extra:
             for e in extra:
-                response = requests.delete("https://{0}.qualtrics.com/API/v3/mailinglists/{1}/contacts/{2}"\
-                        .format(self.dataCenter,mailingListId, np.array(listids)[np.array(listemails) == e][0]), headers=headers)
-                assert response.status_code == 200,"Could not remove contact from list."
+                response = requests.delete(
+                    "https://{0}{3}mailinglists/{1}/contacts/{2}".format(
+                        self.dataCenter,
+                        mailingListId,
+                        np.array(listids)[np.array(listemails) == e][0],
+                        self.qualtricsapi,
+                    ),
+                    headers=headers,
+                )
+                assert (
+                    response.status_code == 200
+                ), "Could not remove contact from list."
 
-
-
-    def genMailingList(self,listName):
-        """ Generate mailing list 
+    def genMailingList(self, listName):
+        """ Generate mailing list
 
         Args:
             listname (str):
@@ -793,42 +857,46 @@ class cornellGrading():
         Returns:
             str:
                 Unique list id
-                
+
         """
 
-        #first we need to figure out what our personal library id is
+        # first we need to figure out what our personal library id is
         headers = {
             "x-api-token": self.apiToken,
             "content-type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
-        tmp = requests.get( "https://{0}.qualtrics.com/API/v3/libraries".format(self.dataCenter), headers=headers) 
+        tmp = requests.get(
+            "https://{0}{1}libraries".format(self.dataCenter, self.qualtricsapi),
+            headers=headers,
+        )
 
         libId = None
-        for el in tmp.json()['result']['elements']:
-            if 'UR_' in el['libraryId'] or 'URH_' in el['libraryId']:
-                libId = el['libraryId']
+        for el in tmp.json()["result"]["elements"]:
+            if "UR_" in el["libraryId"] or "URH_" in el["libraryId"]:
+                libId = el["libraryId"]
                 break
         assert libId is not None, "Could not identify library id."
 
-        data = {"libraryId": libId,
-                "name": listName
-        }
+        data = {"libraryId": libId, "name": listName}
 
-        response = requests.post("https://{0}.qualtrics.com/API/v3/mailinglists".format(self.dataCenter), headers=headers, json=data) 
+        response = requests.post(
+            "https://{0}{1}mailinglists".format(self.dataCenter, self.qualtricsapi),
+            headers=headers,
+            json=data,
+        )
         assert response.status_code == 200, "Could not create mailing list."
 
-        return response.json()['result']['id'] 
+        return response.json()["result"]["id"]
 
-
-
-    def addListContact(self,mailingListId,firstName,lastName,email):
+    def addListContact(self, mailingListId, firstName, lastName, email):
         """ Add a contact to a mailing list
 
         Args:
             mailingListId (str):
-                Unique id string of mailing lists.  Get either from we interface or via getMailingListId
+                Unique id string of mailing lists.  Get either from we interface or via
+                getMailingListId
             firstName (str):
                 First name
             lastName (str):
@@ -838,18 +906,20 @@ class cornellGrading():
 
         Returns:
             None
-            
+
         Notes:
 
-                
+
         """
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/mailinglists/{1}/contacts".format(self.dataCenter,mailingListId)
+        baseUrl = "https://{0}{2}mailinglists/{1}/contacts".format(
+            self.dataCenter, mailingListId, self.qualtricsapi
+        )
 
         headers = {
             "x-api-token": self.apiToken,
             "content-type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
         data = {
@@ -858,85 +928,97 @@ class cornellGrading():
             "email": email,
         }
 
-
         response = requests.post(baseUrl, json=data, headers=headers)
-        assert response.status_code == 200,"Could not add contact to list."
+        assert response.status_code == 200, "Could not add contact to list."
 
-
-
-    def genDistribution(self,surveyId,mailingListId):
+    def genDistribution(self, surveyId, mailingListId):
         """ Create a survey distribution for the given mailing list
 
         Args:
             surveyId (str):
-                Unique id string of survey.  Get either from web interface or via getSurveyId
+                Unique id string of survey.  Get either from web interface or via
+                getSurveyId
             mailingListId (str):
-                Unique id string of mailing lists.  Get either from we interface or via getMailingListId
+                Unique id string of mailing lists.  Get either from we interface or via
+                getMailingListId
 
         Returns:
             list:
-                Dicts containing unique links ['link'] for each person in the mailing list ['email']
-                
+                Dicts containing unique links ['link'] for each person in the mailing
+                list ['email']
+
         Notes:
 
-                
+
         """
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/distributions".format(self.dataCenter)
+        baseUrl = "https://{0}{1}distributions".format(
+            self.dataCenter, self.qualtricsapi
+        )
 
         headers = {
             "x-api-token": self.apiToken,
             "content-type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
-        data = {"surveyId": surveyId,
-                "linkType": "Individual",
-                "description": "distribution %s"%datetime.now().strftime('%Y-%m-%dT%H:%M:%S%Z'),
-                "action": "CreateDistribution",
-                "mailingListId": mailingListId}
+        data = {
+            "surveyId": surveyId,
+            "linkType": "Individual",
+            "description": "distribution %s"
+            % datetime.now().strftime("%Y-%m-%dT%H:%M:%S%Z"),
+            "action": "CreateDistribution",
+            "mailingListId": mailingListId,
+        }
 
         response = requests.post(baseUrl, json=data, headers=headers)
         assert response.status_code == 200
 
+        distributionId = response.json()["result"]["id"]
 
-        distributionId = response.json()['result']['id'] 
-
-        baseUrl2 = "https://{0}.qualtrics.com/API/v3/distributions/{1}/links?surveyId={2}".format(self.dataCenter,distributionId,surveyId)
+        baseUrl2 = "https://{0}{3}distributions/{1}/links?" "surveyId={2}".format(
+            self.dataCenter, distributionId, surveyId, self.qualtricsapi
+        )
         response2 = requests.get(baseUrl2, headers=headers)
 
-        return response2.json()['result']['elements']
+        return response2.json()["result"]["elements"]
 
-
-
-
-    def exportSurvey(self,surveyId, fileFormat="csv"):
+    def exportSurvey(self, surveyId, fileFormat="csv"):
         """ Download and extract survey results
 
         Args:
             surveyId (str):
-                Unique id string of survey.  Get either from web interface or via getSurveyId
+                Unique id string of survey.  Get either from web interface or via
+                getSurveyId
             fileFormat (str):
                 Format to download (must be csv, tsv, or spss
 
         Returns:
             str:
-                Full path to temp directory where unzipped file will be.  Filename should be the same as
+                Full path to temp directory where unzipped file will be.  Filename
+                should be the same as
                 the survey name.
 
         Notes:
-            Adapted from https://api.qualtrics.com/docs/getting-survey-responses-via-the-new-export-apis
-            "useLabels":true is hardcoded (returns label values instead of choice indices.  
-            Change if you don't want that. 
+            Adapted from
+            https://api.qualtrics.com/docs/getting-survey-responses-via-the-new-export-apis
+            "useLabels":true is hardcoded (returns label values instead of choice
+            indices. Change if you don't want that.
 
-                
+
         """
-        assert fileFormat in ["csv", "tsv", "spss"], "fileFormat must be either csv, tsv, or spss"
+        assert fileFormat in [
+            "csv",
+            "tsv",
+            "spss",
+        ], "fileFormat must be either csv, tsv, or spss"
 
         # Setting static parameters
-        #requestCheckProgress = 0.0
+        # requestCheckProgress = 0.0
         progressStatus = "inProgress"
-        baseUrl = "https://{0}.qualtrics.com/API/v3/surveys/{1}/export-responses/".format(self.dataCenter, surveyId)
+        baseUrl = "https://{0}{2}surveys/{1}/export-responses/".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
         headers = {
             "content-type": "application/json",
             "x-api-token": self.apiToken,
@@ -945,21 +1027,26 @@ class cornellGrading():
         # Step 1: Creating Data Export
         downloadRequestUrl = baseUrl
         downloadRequestPayload = '{"useLabels":true, "format":"' + fileFormat + '"}'
-        downloadRequestResponse = requests.request("POST", downloadRequestUrl, data=downloadRequestPayload, headers=headers)
+        downloadRequestResponse = requests.request(
+            "POST", downloadRequestUrl, data=downloadRequestPayload, headers=headers
+        )
         progressId = downloadRequestResponse.json()["result"]["progressId"]
-        #print(downloadRequestResponse.text)
+        # print(downloadRequestResponse.text)
         print("Qualtrics download started.")
 
         # Step 2: Checking on Data Export Progress and waiting until export is ready
         while progressStatus != "complete" and progressStatus != "failed":
-            #print ("progressStatus=", progressStatus)
+            # print ("progressStatus=", progressStatus)
             requestCheckUrl = baseUrl + progressId
-            requestCheckResponse = requests.request("GET", requestCheckUrl, headers=headers)
-            #requestCheckProgress = requestCheckResponse.json()["result"]["percentComplete"]
-            #print("Download is " + str(requestCheckProgress) + " complete")
+            requestCheckResponse = requests.request(
+                "GET", requestCheckUrl, headers=headers
+            )
+            # requestCheckProgress = \
+            #    requestCheckResponse.json()["result"]["percentComplete"]
+            # print("Download is " + str(requestCheckProgress) + " complete")
             progressStatus = requestCheckResponse.json()["result"]["status"]
 
-        #step 2.1: Check for error
+        # step 2.1: Check for error
         if progressStatus == "failed":
             raise Exception("export failed")
 
@@ -968,17 +1055,18 @@ class cornellGrading():
         fileId = requestCheckResponse.json()["result"]["fileId"]
 
         # Step 3: Downloading file
-        requestDownloadUrl = baseUrl + fileId + '/file'
-        requestDownload = requests.request("GET", requestDownloadUrl, headers=headers, stream=True)
+        requestDownloadUrl = baseUrl + fileId + "/file"
+        requestDownload = requests.request(
+            "GET", requestDownloadUrl, headers=headers, stream=True
+        )
 
         # Step 4: Unzipping the file
-        tmpdir = os.path.join(tempfile.gettempdir(),surveyId)
+        tmpdir = os.path.join(tempfile.gettempdir(), surveyId)
         zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall(tmpdir)
-        
+
         return tmpdir
 
-                        
-    def createSurvey(self,surveyname):
+    def createSurvey(self, surveyname):
         """ Create a new survey
 
         Args:
@@ -991,24 +1079,26 @@ class cornellGrading():
 
         Notes:
             Adapted from https://api.qualtrics.com/reference#create-survey
-            English and ProjectCategory: CORE are hard-coded.  Qualtrics will allow you to 
-            create multiple surveys with the same name, but we would like to enforce uniqueness
-            so this is explicitly dissallowed by the method.
-                
+            English and ProjectCategory: CORE are hard-coded.  Qualtrics will allow you
+            to create multiple surveys with the same name, but we would like to enforce
+            uniqueness so this is explicitly dissallowed by the method.
+
         """
 
         res = self.getSurveyNames()
 
         assert surveyname not in res, "Survey with that name already exists."
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/survey-definitions".format(self.dataCenter)
+        baseUrl = "https://{0}{1}survey-definitions".format(
+            self.dataCenter, self.qualtricsapi
+        )
         headers = {
             "x-api-token": self.apiToken,
             "content-type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
-        data = {"SurveyName": surveyname, "Language": "EN","ProjectCategory": "CORE"}
+        data = {"SurveyName": surveyname, "Language": "EN", "ProjectCategory": "CORE"}
 
         response = requests.post(baseUrl, json=data, headers=headers)
 
@@ -1018,7 +1108,7 @@ class cornellGrading():
             print("Survey create failed.")
             print(response.text)
 
-        surveyId = response.json()['result']['SurveyID']
+        surveyId = response.json()["result"]["SurveyID"]
 
         return surveyId
 
@@ -1030,7 +1120,7 @@ class cornellGrading():
                 Name of survey
             nprobs (int):
                 Number of problems on the HW
-                
+
 
         Returns:
             str:
@@ -1043,107 +1133,128 @@ class cornellGrading():
             as soon as the method returns.
 
             This survey will be public with an anonymous link.
-        """
 
+        .. warning::
+            .. deprecated:: 1.0.0
+                Use :py:meth:`cornellGrading.cornellGrading.genPrivateHWSurvey` instead.
+
+        """
+        warnings.warn(
+            "`genHWSurvey` is deprecated and is not the preferred method. "
+            "Use `genPrivateHWSurvey` instead",
+            DeprecationWarning,
+        )
 
         surveyId = self.createSurvey(surveyname)
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/survey-definitions/{1}/questions".format(self.dataCenter, surveyId)
+        baseUrl = "https://{0}{2}survey-definitions/{1}/questions".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
         headers = {
-           'accept': "application/json",
-           'content-type': "application/json",
-           "x-api-token": self.apiToken,
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-api-token": self.apiToken,
         }
 
-
-        #add netid question first
+        # add netid question first
         questionDef = {
-         'QuestionText': 'Enter your netid',
-         'DefaultChoices': False,
-         'DataExportTag': 'Q1',
-         'QuestionID': 'QID1',
-         'QuestionType': 'TE',
-         'Selector': 'SL',
-         'DataVisibility': {'Private': False, 'Hidden': False},
-         'Configuration': {'QuestionDescriptionOption': 'UseText'},
-         'QuestionDescription': 'Enter your netid',
-         'Validation': {'Settings': {'ForceResponse': 'ON',
-           'ForceResponseType': 'ON',
-           'Type': 'None'}},
-         'GradingData': [],
-         'Language': [],
-         'NextChoiceId': 1,
-         'NextAnswerId': 1,
-         'SearchSource': {'AllowFreeResponse': 'false'},
-         'QuestionText_Unsafe': 'Enter your netid'}
+            "QuestionText": "Enter your netid",
+            "DefaultChoices": False,
+            "DataExportTag": "Q1",
+            "QuestionID": "QID1",
+            "QuestionType": "TE",
+            "Selector": "SL",
+            "DataVisibility": {"Private": False, "Hidden": False},
+            "Configuration": {"QuestionDescriptionOption": "UseText"},
+            "QuestionDescription": "Enter your netid",
+            "Validation": {
+                "Settings": {
+                    "ForceResponse": "ON",
+                    "ForceResponseType": "ON",
+                    "Type": "None",
+                }
+            },
+            "GradingData": [],
+            "Language": [],
+            "NextChoiceId": 1,
+            "NextAnswerId": 1,
+            "SearchSource": {"AllowFreeResponse": "false"},
+            "QuestionText_Unsafe": "Enter your netid",
+        }
 
         response = requests.post(baseUrl, json=questionDef, headers=headers)
         assert response.status_code == 200, "Couldn't add netid question."
 
-        #add rubric questions for all problems
-        for j in range(1,nprobs+1):
+        # add rubric questions for all problems
+        for j in range(1, nprobs + 1):
             questionDef = {
-                 'QuestionText': 'Question %d Score'%j,
-                 'DataExportTag': 'Q%d'%(j+1),
-                 'QuestionType': 'MC',
-                 'Selector': 'SAVR',
-                 'SubSelector': 'TX',
-                 'Configuration': {'QuestionDescriptionOption': 'UseText'},
-                 'QuestionDescription': 'Question %d Score'%j,
-                 'Choices': {'1': {'Display': '0'},
-                  '2': {'Display': '1'},
-                  '3': {'Display': '2'},
-                  '4': {'Display': '3'}},
-                 'ChoiceOrder': [1, 2, 3, 4],
-                 'Validation': {'Settings': {'ForceResponse': 'ON',
-                   'ForceResponseType': 'ON',
-                   'Type': 'None'}},
-                 'Language': [],
-                 'QuestionID': 'QID%d'%(j+1),
-                 'DataVisibility': {'Private': False, 'Hidden': False},
-                 'NextChoiceId': 5,
-                 'NextAnswerId': 1,
-                 'QuestionText_Unsafe': 'Question %d Score'%j}
+                "QuestionText": "Question %d Score" % j,
+                "DataExportTag": "Q%d" % (j + 1),
+                "QuestionType": "MC",
+                "Selector": "SAVR",
+                "SubSelector": "TX",
+                "Configuration": {"QuestionDescriptionOption": "UseText"},
+                "QuestionDescription": "Question %d Score" % j,
+                "Choices": {
+                    "1": {"Display": "0"},
+                    "2": {"Display": "1"},
+                    "3": {"Display": "2"},
+                    "4": {"Display": "3"},
+                },
+                "ChoiceOrder": [1, 2, 3, 4],
+                "Validation": {
+                    "Settings": {
+                        "ForceResponse": "ON",
+                        "ForceResponseType": "ON",
+                        "Type": "None",
+                    }
+                },
+                "Language": [],
+                "QuestionID": "QID%d" % (j + 1),
+                "DataVisibility": {"Private": False, "Hidden": False},
+                "NextChoiceId": 5,
+                "NextAnswerId": 1,
+                "QuestionText_Unsafe": "Question %d Score" % j,
+            }
             response = requests.post(baseUrl, json=questionDef, headers=headers)
             assert response.status_code == 200, "Couldn't add problem question."
 
-        #publish
-        baseUrl2 = "https://{0}.qualtrics.com/API/v3/survey-definitions/{1}/versions".format(self.dataCenter, surveyId)
+        # publish
+        baseUrl2 = "https://{0}{2}survey-definitions/{1}/versions".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
 
-        data = {
-            "Description": surveyname,
-            "Published": True
-        }
+        data = {"Description": surveyname, "Published": True}
 
         response = requests.post(baseUrl2, json=data, headers=headers)
         assert response.status_code == 200, "Could not publish."
 
-        #activate
-        baseUrl3 = "https://{0}.qualtrics.com/API/v3/surveys/{1}".format(self.dataCenter, surveyId)
+        # activate
+        baseUrl3 = "https://{0}{2}surveys/{1}".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
         headers3 = {
             "content-type": "application/json",
             "x-api-token": self.apiToken,
-            }
+        }
 
-        data3 = { 
-            "isActive": True, 
-           }
+        data3 = {
+            "isActive": True,
+        }
 
         response = requests.put(baseUrl3, json=data3, headers=headers3)
 
-
-        link = "https://cornell.qualtrics.com/jfe/form/%s"%surveyId
+        link = "https://cornell.qualtrics.com/jfe/form/%s" % surveyId
 
         return link
 
-
-    def setupHW(self,assignmentNum,duedate,nprobs):
-        """ Create qualtrics self-grading survey and Canvas column for 
+    def setupHW(self, assignmentNum, duedate, nprobs):
+        """ Create qualtrics self-grading survey and Canvas column for
         a homework.
 
         Args:
             assignmentNum (int):
-                Number of assignment. Name of survey will be 
+                Number of assignment. Name of survey will be
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW# Self-Grading
             duedate (str):
@@ -1153,41 +1264,65 @@ class cornellGrading():
         Returns:
             None
 
-        Notes:
-            Note that this does not embed the solutions - still need to do that manually.
-
+        .. warning::
+            .. deprecated:: 1.0.0
+                Use :py:meth:`cornellGrading.cornellGrading.setupPrivateHW` instead.
         """
 
-        duedate = self.localizeTime(duedate) 
+        warnings.warn(
+            "`setupHW` is deprecated and is not the preferred method. "
+            "Use `setupPrivateHW` instead",
+            DeprecationWarning,
+        )
 
-        surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
-        assname = "HW%d Self-Grading"%assignmentNum
+        duedate = self.localizeTime(duedate)
+
+        surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
+        assname = "HW%d Self-Grading" % assignmentNum
 
         link = self.genHWSurvey(surveyname, nprobs)
 
         try:
             sg = self.getAssignmentGroup("Homework Self-Grading")
-        except:
+        except AssertionError:
             sg = self.createAssignmentGroup("Homework Self-Grading")
-        
+
         desc = """<p>Solutions: </p>
-                  <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem here:</p>
-                  <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}</a></p>
-                  <p>Be sure to enter your correct netid or you will not receive credit.</p>""".format(link)
+                  <p>Grade yourself against the rubric in the syllabus and enter your
+                  scores for each problem here:</p>
+                  <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}
+                  </a></p>
+                  <p>Be sure to enter your correct netid or you will not receive
+                  credit.</p>""".format(
+            link
+        )
 
-        ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
-                due_at=duedate+timedelta(days=7),unlock_at=duedate+timedelta(days=3))
+        _ = self.createAssignment(
+            assname,
+            sg.id,
+            points_possible=0,
+            description=desc,
+            due_at=duedate + timedelta(days=7),
+            unlock_at=duedate + timedelta(days=3),
+        )
 
-        
-    def uploadHW(self,assignmentNum,duedate,hwfile,totscore=10,unlockDelta=None,injectText=False):
-        """ Create a Canvas assignment, set the duedae, upload an associated 
+    def uploadHW(
+        self,
+        assignmentNum,
+        duedate,
+        hwfile,
+        totscore=10,
+        unlockDelta=None,
+        injectText=False,
+    ):
+        """ Create a Canvas assignment, set the duedae, upload an associated
         PDF and link in the assignment description, set the number of points, and
-        (optionally), set an unlock time and inject the assignment text into the 
+        (optionally), set an unlock time and inject the assignment text into the
         description along with the PDF link.
 
         Args:
             assignmentNum (int):
-                Number of assignment. Name of survey will be 
+                Number of assignment. Name of survey will be
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW# Self-Grading
             duedate (str):
@@ -1200,8 +1335,8 @@ class cornellGrading():
             injectText (bool):
                 If True, will attempt to locate the tex file associated with the
                 provided PDF in hwfile (looking in the same directory), will then
-                convert to Canvas compatible html using pandoc, and add to the assignment
-                description.  Requires pandoc to be installed and callable!
+                convert to Canvas compatible html using pandoc, and add to the
+                assignment description.  Requires pandoc to be installed and callable!
 
         Returns:
             canvasapi.assignment.Assignment
@@ -1212,113 +1347,154 @@ class cornellGrading():
 
         """
 
-        duedate = self.localizeTime(duedate) 
+        duedate = self.localizeTime(duedate)
 
-        hwname = "HW%d"%assignmentNum
+        hwname = "HW%d" % assignmentNum
 
         try:
             hw = self.getAssignment(hwname)
             alreadyExists = True
-        except:
+        except AssertionError:
             alreadyExists = False
 
-        assert not(alreadyExists), "%s already exists"%hwname
+        assert not (alreadyExists), "%s already exists" % hwname
 
-        #grab assignment group
+        # grab assignment group
         hwgroup = self.getAssignmentGroup("Assignments")
 
-        #grab homeworks folder
-        hwfoldername = "Homeworks/"+hwname
-        hwfolder = self.createFolder(hwfoldername,hidden=True)
+        # grab homeworks folder
+        hwfoldername = "Homeworks/" + hwname
+        hwfolder = self.createFolder(hwfoldername, hidden=True)
 
-        res = hwfolder.upload(hwfile) 
+        res = hwfolder.upload(hwfile)
+        assert res[0], "HW Upload failed."
 
-        assert res[0],"HW Upload failed."
+        hwurl = res[1]["url"]
+        hwfname = res[1]["filename"]
+        hwepoint = hwurl.split("/download")[0]
 
-        hwurl = res[1]['url']
-        hwfname = res[1]['filename']
-        hwepoint = hwurl.split('/download')[0]
-
-        desc = """<p>Downloadable Assignment: <a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(hwfname,hwurl,hwepoint)
+        desc = (
+            """<p>Downloadable Assignment: <a class="instructure_file_link """
+            """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
+            """data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(
+                hwfname, hwurl, hwepoint
+            )
+        )
 
         if unlockDelta:
-            unlockAt = duedate-timedelta(days=unlockDelta)
+            unlockAt = duedate - timedelta(days=unlockDelta)
         else:
             unlockAt = None
 
         if injectText:
-            out = self.latex2html(hwfile,folder=hwfoldername)
-            desc = desc+" ".join(out)
+            out = self.latex2html(hwfile, folder=hwfoldername)
+            desc = desc + " ".join(out)
 
-        hw = self.createAssignment(hwname,hwgroup.id,points_possible=10,description=desc,\
-                due_at=duedate,unlock_at=unlockAt, submission_types=['online_upload'])
+        hw = self.createAssignment(
+            hwname,
+            hwgroup.id,
+            points_possible=10,
+            description=desc,
+            due_at=duedate,
+            unlock_at=unlockAt,
+            submission_types=["online_upload"],
+        )
 
         return hw
 
-
-    def latex2html(self,fname,folder="Images",hidden=True):
+    def latex2html(self, fname, folder="Images", hidden=True):
         """ Convert LaTex source into Canvas-compatible html
         and upload any required figures along the way
 
         Args:
             fname (str):
-                Full path of filename to process.  If it has a PDF extension, assume that
-                we're looking for the same filename .tex in the same directory.  Otherwise,
-                assumes that you're giving it the source file.
+                Full path of filename to process.  If it has a PDF extension, assume
+                that we're looking for the same filename .tex in the same directory.
+                Otherwise, assumes that you're giving it the source file.
             folder (str):
                 Canvas folder to upload any images or other supporting material to.
                 Defaults to Images.  If the folder does not exist, it will be created.
                 See createFolder for details.
             hidden (bool):
-                If the folder for image upload doesn't exist and needs to be created, 
-                it will have student visibility set by hidden. Defaults True (not visible
-                to students without link).
+                If the folder for image upload doesn't exist and needs to be created,
+                it will have student visibility set by hidden. Defaults True (not
+                visible to students without link).
 
         Returns:
             list:
-                List of strings of fully formatted html corresponding to the <body> block
-                of a webpage
+                List of strings of fully formatted html corresponding to the <body>
+                block of a webpage
 
         Notes:
             Requires pandoc to be installed and callable!
-            NB: Uploaded files will overwrite files of the same name in the upload folder
+
+        .. warning::
+            Uploaded files will overwrite files of the same name in the upload folder.
         """
 
-        #won't work if we don't have pandoc
-        assert shutil.which("pandoc"),"Cannot locate pandoc"
+        # won't work if we don't have pandoc
+        assert shutil.which("pandoc"), (
+            "Cannot locate pandoc. Please visit https://pandoc.org/installing.html"
+            "for intallation instructions."
+        )
 
-        #going to assume that the pdf file is located in the working dir with the tex
-        #and everything else that's needed for compilation
-        hwd,hwf = os.path.split(fname)
+        # going to assume that the pdf file is located in the working dir with the tex
+        # and everything else that's needed for compilation
+        hwd, hwf = os.path.split(fname)
 
-        if hwf.split(os.extsep)[1].lower() =='pdf':
-            texf = hwf.split(os.extsep)[0]+os.extsep+'tex'
+        if hwf.split(os.extsep)[1].lower() == "pdf":
+            texf = hwf.split(os.extsep)[0] + os.extsep + "tex"
         else:
             texf = hwf
-        assert os.path.exists(os.path.join(hwd,texf)), "Cannot locate LaTeX source %s"%texf
+        assert os.path.exists(os.path.join(hwd, texf)), (
+            "Cannot locate LaTeX source %s" % texf
+        )
 
-        #all new products are going into the system tmp dir
+        # all new products are going into the system tmp dir
         tmpdir = tempfile.gettempdir()
-        htmlf = os.path.join(tmpdir,hwf.split(os.extsep)[0]+os.extsep+'html')
-        
-        #run pandoc
-        if hwd:
-            res = subprocess.run(["pandoc", texf, "-s", "--webtex", "-o", htmlf,\
-                "--default-image-extension=png"],cwd=hwd, check=True,capture_output=True)
-        else:
-            res = subprocess.run(["pandoc", texf, "-s", "--webtex", "-o", htmlf,\
-                "--default-image-extension=png"],cwd=os.path.curdir, check=True,capture_output=True)
-        assert os.path.exists(htmlf), "Cannot locate html output %s"%htmlf
+        htmlf = os.path.join(tmpdir, hwf.split(os.extsep)[0] + os.extsep + "html")
 
-        #read result
+        # run pandoc
+        if hwd:
+            _ = subprocess.run(
+                [
+                    "pandoc",
+                    texf,
+                    "-s",
+                    "--webtex",
+                    "-o",
+                    htmlf,
+                    "--default-image-extension=png",
+                ],
+                cwd=hwd,
+                check=True,
+                capture_output=True,
+            )
+        else:
+            _ = subprocess.run(
+                [
+                    "pandoc",
+                    texf,
+                    "-s",
+                    "--webtex",
+                    "-o",
+                    htmlf,
+                    "--default-image-extension=png",
+                ],
+                cwd=os.path.curdir,
+                check=True,
+                capture_output=True,
+            )
+        assert os.path.exists(htmlf), "Cannot locate html output %s" % htmlf
+
+        # read result
         with open(htmlf) as f:
             lines = f.readlines()
 
-        upfolder = self.createFolder(folder,hidden=hidden)
+        upfolder = self.createFolder(folder, hidden=hidden)
 
-        #now we need to parse the result and fix things
+        # now we need to parse the result and fix things
         class MyHTMLParser(HTMLParser):
-
             def __init__(self):
                 HTMLParser.__init__(self)
                 self.inBody = False
@@ -1331,38 +1507,59 @@ class cornellGrading():
                 if tag == "body":
                     self.inBody = True
                 if tag == "img":
-                    imsrc = dict(attrs)['src']
-                    #anyting that's not a link must be an actual image
-                    if not(imsrc.startswith("http")):
-                        #if you don't see it in the source directory, it's probably a PDF and needs
-                        #to be converted to PNG
-                        if not(os.path.exists(os.path.join(hwd,imsrc))):
-                            #look for the pdf of this image
-                            imf = os.path.join(hwd,imsrc.split(os.extsep)[0]+os.extsep+'pdf')
+                    imsrc = dict(attrs)["src"]
+                    # anyting that's not a link must be an actual image
+                    if not (imsrc.startswith("http")):
+                        # if you don't see it in the source directory, it's probably a
+                        # PDF and needs to be converted to PNG
+                        if not (os.path.exists(os.path.join(hwd, imsrc))):
+                            # look for the pdf of this image
+                            imf = os.path.join(
+                                hwd, imsrc.split(os.extsep)[0] + os.extsep + "pdf"
+                            )
                             if not os.path.exists(imf):
-                                imf = os.path.join(hwd,imsrc.split(os.extsep)[0]+'-eps-converted-to'+os.extsep+'pdf')
-                            assert os.path.exists(imf),"Original image file not found for %s"%imsrc
-                            
-                            pilim = pdf2image.convert_from_path(imf, dpi=150,
-                                    output_folder=None, fmt='png', use_cropbox=False, strict=False)
-                            pngf = os.path.join(tmpdir,imsrc)
-                            pilim[0].save(pngf)
-                            assert os.path.exists(pngf), "Cannot locate png output %s"%htmlf
-                        else:
-                            pngf = os.path.join(hwd,imsrc)
+                                imf = os.path.join(
+                                    hwd,
+                                    imsrc.split(os.extsep)[0]
+                                    + "-eps-converted-to"
+                                    + os.extsep
+                                    + "pdf",
+                                )
+                            assert os.path.exists(imf), (
+                                "Original image file not found for %s" % imsrc
+                            )
 
-                        #push PNG up into the HW folder
+                            pilim = pdf2image.convert_from_path(
+                                imf,
+                                dpi=150,
+                                output_folder=None,
+                                fmt="png",
+                                use_cropbox=False,
+                                strict=False,
+                            )
+                            pngf = os.path.join(tmpdir, imsrc)
+                            pilim[0].save(pngf)
+                            assert os.path.exists(pngf), (
+                                "Cannot locate png output %s" % htmlf
+                            )
+                        else:
+                            pngf = os.path.join(hwd, imsrc)
+
+                        # push PNG up into the HW folder
                         res = upfolder.upload(pngf)
-                        assert res[0],"Imag upload failed: %s"%pngf
-                        self.imagesUploaded.append({"orig":imsrc,\
-                                                   "url":res[1]['preview_url'].split('/file_preview')[0]})
+                        assert res[0], "Imag upload failed: %s" % pngf
+                        self.imagesUploaded.append(
+                            {
+                                "orig": imsrc,
+                                "url": res[1]["preview_url"].split("/file_preview")[0],
+                            }
+                        )
 
                 if tag == "figcaption":
                     self.inFigcaption = True
 
                 if tag == "span":
                     self.inSpan = True
-
 
             def handle_endtag(self, tag):
                 if tag == "body":
@@ -1374,42 +1571,45 @@ class cornellGrading():
                 if tag == "span":
                     self.inSpan = False
 
-
             def handle_data(self, data):
-                if self.inFigcaption and not(self.inSpan):
+                if self.inFigcaption and not (self.inSpan):
                     self.figcaptions.append(data)
 
-            #end MyHTMLParser
-        
-        imstyles = '''img style="vertical-align:middle"'''
-        imstyler = '''img class="equation_image"'''
+            # end MyHTMLParser
 
-        srcstrs = '''src="https://latex.codecogs.com/png.latex\?'''
-        srcstrr = '''src="https://canvas.cornell.edu/equation_images/'''
+        imstyles = r'img style="vertical-align:middle"'
+        imstyler = r'img class="equation_image"'
 
-        p = re.compile('src="https://latex.codecogs.com/png.latex\?(.*?)"') 
-        convlatex = lambda x: re.sub(x.groups()[0], urllib.parse.quote(x.groups()[0]), x.group())
+        srcstrs = r'src="https://latex.codecogs.com/png.latex\?'
+        srcstrr = r'src="https://canvas.cornell.edu/equation_images/'
+
+        p = re.compile(r'src="https://latex.codecogs.com/png.latex\?(.*?)"')
+
+        def convlatex(x):
+            return re.sub(x.groups()[0], urllib.parse.quote(x.groups()[0]), x.group())
 
         parser = MyHTMLParser()
         out = []
-        for l in lines:
-            buh = parser.feed(l)
+        for line in lines:
+            _ = parser.feed(line)
             if parser.inBody:
-                tmp = p.sub(convlatex,l)
-                tmp = re.sub(srcstrs,srcstrr,re.sub(imstyles,imstyler,tmp)).strip()
+                tmp = p.sub(convlatex, line)
+                tmp = re.sub(srcstrs, srcstrr, re.sub(imstyles, imstyler, tmp)).strip()
                 while parser.imagesUploaded:
                     imup = parser.imagesUploaded.pop()
                     figcap = parser.figcaptions.pop()
-                    tmp = re.sub(r'src="{0}"'.format(imup['orig']),\
-                                 r'src="https://canvas.cornell.edu{0}/preview" data-api-endpoint="https://canvas.cornell.edu/api/v1{0}" data-api-returntype="File" '.format(imup['url']), tmp)
-                    tmp = re.sub(r'alt=""',r'alt="{0}"'.format(figcap),tmp)
+                    canvasimurl = (
+                        r'src="https://canvas.cornell.edu{0}/preview" '
+                        r'data-api-endpoint="https://canvas.cornell.edu/api/'
+                        r'v1{0}" data-api-returntype="File" '.format(imup["url"])
+                    )
+                    tmp = re.sub(r'src="{0}"'.format(imup["orig"]), canvasimurl, tmp)
+                    tmp = re.sub(r'alt=""', r'alt="{0}"'.format(figcap), tmp)
 
                 out.append(tmp)
 
         out = out[1:]
         return out
-
-
 
     def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None):
         """ Create a HW self-grade survey and make private
@@ -1421,137 +1621,158 @@ class cornellGrading():
                 Number of problems on the HW. Set to 0 for total score only.
             scoreOptions (list of ints):
                 Possible responses to each question.  Defaults to 0,1,2,3
-                
+
 
         Returns:
             str:
                 Unique survey ID
 
         Notes:
-            The survey will be created with nprobs multiple choice fields for the problems with responses 0-4.
-            The survey will be published and activated, but made private.  No distributions will be created.
+            The survey will be created with nprobs multiple choice fields for the
+            problems with responses 0-4.
+            The survey will be published and activated, but made private.  No
+            distributions will be created.
         """
 
-        assert isinstance(nprobs,int),"nprobs must be an int"
+        assert isinstance(nprobs, int), "nprobs must be an int"
         assert nprobs >= 0, "nprobs must be a positive integer (or zero)"
 
         surveyId = self.createSurvey(surveyname)
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/survey-definitions/{1}/questions".format(self.dataCenter, surveyId)
+        baseUrl = "https://{0}{2}survey-definitions/{1}/questions".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
         headers = {
-           'accept': "application/json",
-           'content-type': "application/json",
-           "x-api-token": self.apiToken,
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-api-token": self.apiToken,
         }
 
-
-        if  scoreOptions is None:
-            scoreOptions=[0,1,2,3]
+        if scoreOptions is None:
+            scoreOptions = [0, 1, 2, 3]
 
         choices = {}
-        for j,choice in enumerate(scoreOptions):
-            choices[str(j+1)] = {'Display':str(choice)}
-        choiceOrder = list(range(1,len(choices)+1))
+        for j, choice in enumerate(scoreOptions):
+            choices[str(j + 1)] = {"Display": str(choice)}
+        choiceOrder = list(range(1, len(choices) + 1))
 
-        
         if nprobs == 0:
             questionDef = {
-                 'QuestionText': 'HW Score',
-                 'DataExportTag': 'Q1',
-                 'QuestionType': 'MC',
-                 'Selector': 'SAVR',
-                 'SubSelector': 'TX',
-                 'Configuration': {'QuestionDescriptionOption': 'UseText'},
-                 'QuestionDescription': 'HW Score',
-                 'Choices': choices,
-                 'ChoiceOrder': choiceOrder,
-                 'Validation': {'Settings': {'ForceResponse': 'ON',
-                   'ForceResponseType': 'ON',
-                   'Type': 'None'}},
-                 'Language': [],
-                 'QuestionID': 'QID1',
-                 'DataVisibility': {'Private': False, 'Hidden': False},
-                 'NextChoiceId': 5,
-                 'NextAnswerId': 1,
-                 'QuestionText_Unsafe': 'HW Score'}
+                "QuestionText": "HW Score",
+                "DataExportTag": "Q1",
+                "QuestionType": "MC",
+                "Selector": "SAVR",
+                "SubSelector": "TX",
+                "Configuration": {"QuestionDescriptionOption": "UseText"},
+                "QuestionDescription": "HW Score",
+                "Choices": choices,
+                "ChoiceOrder": choiceOrder,
+                "Validation": {
+                    "Settings": {
+                        "ForceResponse": "ON",
+                        "ForceResponseType": "ON",
+                        "Type": "None",
+                    }
+                },
+                "Language": [],
+                "QuestionID": "QID1",
+                "DataVisibility": {"Private": False, "Hidden": False},
+                "NextChoiceId": 5,
+                "NextAnswerId": 1,
+                "QuestionText_Unsafe": "HW Score",
+            }
             response = requests.post(baseUrl, json=questionDef, headers=headers)
             assert response.status_code == 200, "Couldn't add problem question."
 
-           
-
-        #add rubric questions for all problems
-        for j in range(1,nprobs+1):
+        # add rubric questions for all problems
+        for j in range(1, nprobs + 1):
             questionDef = {
-                 'QuestionText': 'Question %d Score'%j,
-                 'DataExportTag': 'Q%d'%(j+1),
-                 'QuestionType': 'MC',
-                 'Selector': 'SAVR',
-                 'SubSelector': 'TX',
-                 'Configuration': {'QuestionDescriptionOption': 'UseText'},
-                 'QuestionDescription': 'Question %d Score'%j,
-                 'Choices': choices,
-                 'ChoiceOrder': choiceOrder,
-                 'Validation': {'Settings': {'ForceResponse': 'ON',
-                   'ForceResponseType': 'ON',
-                   'Type': 'None'}},
-                 'Language': [],
-                 'QuestionID': 'QID%d'%(j+1),
-                 'DataVisibility': {'Private': False, 'Hidden': False},
-                 'NextChoiceId': 5,
-                 'NextAnswerId': 1,
-                 'QuestionText_Unsafe': 'Question %d Score'%j}
+                "QuestionText": "Question %d Score" % j,
+                "DataExportTag": "Q%d" % (j + 1),
+                "QuestionType": "MC",
+                "Selector": "SAVR",
+                "SubSelector": "TX",
+                "Configuration": {"QuestionDescriptionOption": "UseText"},
+                "QuestionDescription": "Question %d Score" % j,
+                "Choices": choices,
+                "ChoiceOrder": choiceOrder,
+                "Validation": {
+                    "Settings": {
+                        "ForceResponse": "ON",
+                        "ForceResponseType": "ON",
+                        "Type": "None",
+                    }
+                },
+                "Language": [],
+                "QuestionID": "QID%d" % (j + 1),
+                "DataVisibility": {"Private": False, "Hidden": False},
+                "NextChoiceId": 5,
+                "NextAnswerId": 1,
+                "QuestionText_Unsafe": "Question %d Score" % j,
+            }
             response = requests.post(baseUrl, json=questionDef, headers=headers)
             assert response.status_code == 200, "Couldn't add problem question."
 
-        #publish
-        baseUrl2 = "https://{0}.qualtrics.com/API/v3/survey-definitions/{1}/versions".format(self.dataCenter, surveyId)
+        # publish
+        baseUrl2 = "https://{0}{2}survey-definitions/{1}/versions".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
 
-        data = {
-            "Description": surveyname,
-            "Published": True
-        }
+        data = {"Description": surveyname, "Published": True}
 
         response = requests.post(baseUrl2, json=data, headers=headers)
         assert response.status_code == 200, "Could not publish."
 
-        #activate
-        baseUrl3 = "https://{0}.qualtrics.com/API/v3/surveys/{1}".format(self.dataCenter, surveyId)
+        # activate
+        baseUrl3 = "https://{0}{2}surveys/{1}".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
         headers3 = {
             "content-type": "application/json",
             "x-api-token": self.apiToken,
-            }
+        }
 
-        data3 = { 
-            "isActive": True, 
-           }
+        data3 = {
+            "isActive": True,
+        }
 
         response = requests.put(baseUrl3, json=data3, headers=headers3)
         assert response.status_code == 200, "Could not activate."
 
-        #let's set this to private.  first need to get current options as a template
-        baseUrl4 = "https://{0}.qualtrics.com/API/v3/survey-definitions/{1}/options".format(self.dataCenter,surveyId)
-        tmp =  requests.get(baseUrl4, headers=headers3)
+        # let's set this to private.  first need to get current options as a template
+        baseUrl4 = "https://{0}{2}survey-definitions/{1}/options".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
+        tmp = requests.get(baseUrl4, headers=headers3)
         assert response.status_code == 200, "Could not query options."
 
-        data4 = tmp.json()['result'] 
+        data4 = tmp.json()["result"]
         data4["SurveyProtection"] = "ByInvitation"
 
         response = requests.put(baseUrl4, json=data4, headers=headers3)
         assert response.status_code == 200, "Could not update options."
 
-
         return surveyId
 
-
-    def setupPrivateHW(self,assignmentNum,nprobs,sharewith=None, scoreOptions=None,\
-            createAss=False, solutions=None, selfGradeDueDelta=7,selfGradeReleasedDelta=3):
+    def setupPrivateHW(
+        self,
+        assignmentNum,
+        nprobs,
+        sharewith=None,
+        scoreOptions=None,
+        createAss=False,
+        solutions=None,
+        injectText=False,
+        selfGradeDueDelta=7,
+        selfGradeReleasedDelta=3,
+    ):
         """ Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
 
         Args:
             assignmentNum (int):
-                Number of assignment. Name of survey will be 
+                Number of assignment. Name of survey will be
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW# Self-Grading
             nprobs (int):
@@ -1563,11 +1784,17 @@ class cornellGrading():
             createAss (bool):
                 Whether to create a self-grading assignment in Canvas (defaults False)
             solutions (str):
-                Full path to solutions file to upload.  
+                Full path to solutions file to upload.
+            injectText (bool):
+                If True, will attempt to locate the tex file associated with the
+                provided PDF in solutions (looking in the same directory), will then
+                convert to Canvas compatible html using pandoc, and add to the
+                assignment description.  Requires pandoc to be installed and callable!
             selfGradeDueDelta (float):
                 Days after initial hw duedate that self-grading is due
             selfGradeReleasedDelta (float):
-                Days after initial hw duedate that self-grading (and solutions) are released.
+                Days after initial hw duedate that self-grading (and solutions) are
+                released.
 
 
         Returns:
@@ -1575,68 +1802,90 @@ class cornellGrading():
 
         """
 
-        #create survey and distribution
-        surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
-        surveyId = self.genPrivateHWSurvey(surveyname, nprobs, scoreOptions=scoreOptions)
+        # create survey and distribution
+        surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
+        surveyId = self.genPrivateHWSurvey(
+            surveyname, nprobs, scoreOptions=scoreOptions
+        )
 
         if sharewith:
-            self.shareSurvey(surveyId,sharewith)
+            self.shareSurvey(surveyId, sharewith)
 
         mailingListId = self.getMailingListId(self.coursename)
-        dist = self.genDistribution(surveyId,mailingListId)
+        dist = self.genDistribution(surveyId, mailingListId)
 
-        distnetids = np.array([d['email'].split('@')[0] for d in dist])
-        
-        #grab the original assignment and all the submissions
-        hwname = "HW%d"%assignmentNum
+        distnetids = np.array([d["email"].split("@")[0] for d in dist])
+
+        # grab the original assignment and all the submissions
+        hwname = "HW%d" % assignmentNum
         hw = self.getAssignment(hwname)
-        subs = hw.get_submissions() 
+        subs = hw.get_submissions()
 
-        #inject links to all users in distribution
+        # inject links to all users in distribution
         missing = []
         for s in subs:
             if self.netids[self.ids == s.user_id][0] in distnetids:
-                link = dist[np.where(distnetids == self.netids[self.ids == s.user_id])[0][0]]['link'] 
-                tmp = s.edit(comment = {'text_comment':"One-time link to self-grading survey:\n %s"%link})
+                link = dist[
+                    np.where(distnetids == self.netids[self.ids == s.user_id])[0][0]
+                ]["link"]
+                _ = s.edit(
+                    comment={
+                        "text_comment": "One-time link to self-grading survey:\n %s"
+                        % link
+                    }
+                )
             else:
                 missing.append(self.netids[self.ids == s.user_id][0])
 
         if missing:
             print("Could not identify links for the following users:")
             print("\n".join(missing))
-        
-        
+
         if createAss:
             duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
-            assname = "HW%d Self-Grading"%assignmentNum
+            assname = "HW%d Self-Grading" % assignmentNum
 
-            #grab self-grading group
+            # grab self-grading group
             try:
                 sg = self.getAssignmentGroup("Homework Self-Grading")
-            except:
+            except AssertionError:
                 sg = self.createAssignmentGroup("Homework Self-Grading")
 
-            #grab homeworks folder
-            try:
-                hwfolder = self.getFolder("Homeworks")
-            except:
-                hwfolder = self.createFolder("Homeworks",hidden=True)
+            # grab homeworks folder
+            hwfoldername = "Homeworks/HW%d" % assignmentNum
+            hwfolder = self.createFolder(hwfoldername, hidden=True)
 
-            res = hwfolder.upload(solutions) 
+            # upload
+            res = hwfolder.upload(solutions)
+            assert res[0], "Solutions Upload failed."
 
-            assert res[0],"Solutions Upload failed."
+            solurl = res[1]["url"]
+            solfname = res[1]["filename"]
+            solepoint = solurl.split("/download")[0]
 
-            solurl = res[1]['url']
-            solfname = res[1]['filename']
-            solepoint = solurl.split('/download')[0]
+            desc = (
+                """<p>Solutions: <a class="instructure_file_link """
+                """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
+                """data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>
+                    <p>Grade yourself against the rubric in the syllabus and enter your
+                    scores for each problem by following the link in the comments on
+                    your original submission.</p>""".format(
+                    solfname, solurl, solepoint
+                )
+            )
 
-            desc = """<p>Solutions: <a class="instructure_file_link instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>
-                    <p>Grade yourself against the rubric in the syllabus and enter your scores for each problem by following the link in the comments on your original submission.</p>""".format(solfname,solurl,solepoint)
+            if injectText:
+                out = self.latex2html(solutions, folder=hwfoldername)
+                desc = desc + " ".join(out)
 
-            ass = self.createAssignment(assname,sg.id,points_possible=0,description=desc,\
-                    due_at=duedate+timedelta(days=selfGradeDueDelta),unlock_at=duedate+timedelta(days=selfGradeReleasedDelta))
-
-
+            _ = self.createAssignment(
+                assname,
+                sg.id,
+                points_possible=0,
+                description=desc,
+                due_at=duedate + timedelta(days=selfGradeDueDelta),
+                unlock_at=duedate + timedelta(days=selfGradeReleasedDelta),
+            )
 
     def shareSurvey(self, surveyId, sharewith):
         """ Share survey with another qualtrics user
@@ -1654,64 +1903,66 @@ class cornellGrading():
         headers = {
             "x-api-token": self.apiToken,
             "content-type": "application/json",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
 
-        baseUrl = "https://{0}.qualtrics.com/API/v3/surveys/{1}/permissions/collaborations".format(self.dataCenter,surveyId)
+        baseUrl = "https://{0}{2}surveys/{1}/permissions/" "collaborations".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
 
         data = {
-            "userId" : sharewith,
-            "permissions" : {
-              "surveyDefinitionManipulation" : {
-                "copySurveyQuestions" : True,
-                "editSurveyFlow" : True,
-                "useBlocks" : True,
-                "useSkipLogic" : True,
-                "useConjoint" : True,
-                "useTriggers" : True,
-                "useQuotas" : True,
-                "setSurveyOptions" : True,
-                "editQuestions" : True,
-                "deleteSurveyQuestions" : True,
-                "useTableOfContents" : True,
-                "useAdvancedQuotas" : True
-               },
-              "surveyManagement" : {
-                "editSurveys" : True,
-                "activateSurveys" : True,
-                "deactivateSurveys" : True,
-                "copySurveys" : True,
-                "distributeSurveys" : True,
-                "deleteSurveys" : True,
-                "translateSurveys" : True
-              },
-              "response" : {
-                "editSurveyResponses" : True,
-                "createResponseSets" : True,
-                "viewResponseId" : True,
-                "useCrossTabs" : True,
-                "useScreenouts" : True
-              },
-              "result" : {
-                "downloadSurveyResults" : True,
-                "viewSurveyResults" : True,
-                "filterSurveyResults" : True,
-                "viewPersonalData" : True
-              }
-            }
-           }
+            "userId": sharewith,
+            "permissions": {
+                "surveyDefinitionManipulation": {
+                    "copySurveyQuestions": True,
+                    "editSurveyFlow": True,
+                    "useBlocks": True,
+                    "useSkipLogic": True,
+                    "useConjoint": True,
+                    "useTriggers": True,
+                    "useQuotas": True,
+                    "setSurveyOptions": True,
+                    "editQuestions": True,
+                    "deleteSurveyQuestions": True,
+                    "useTableOfContents": True,
+                    "useAdvancedQuotas": True,
+                },
+                "surveyManagement": {
+                    "editSurveys": True,
+                    "activateSurveys": True,
+                    "deactivateSurveys": True,
+                    "copySurveys": True,
+                    "distributeSurveys": True,
+                    "deleteSurveys": True,
+                    "translateSurveys": True,
+                },
+                "response": {
+                    "editSurveyResponses": True,
+                    "createResponseSets": True,
+                    "viewResponseId": True,
+                    "useCrossTabs": True,
+                    "useScreenouts": True,
+                },
+                "result": {
+                    "downloadSurveyResults": True,
+                    "viewSurveyResults": True,
+                    "filterSurveyResults": True,
+                    "viewPersonalData": True,
+                },
+            },
+        }
 
-        tmp = requests.post(baseUrl,headers=headers,json=data)  
+        tmp = requests.post(baseUrl, headers=headers, json=data)
         assert tmp.status_code == 200, "Could not share survey."
 
-
-
-    def selfGradingImport(self,assignmentNum,ecscore=3,checkLate=True,latePenalty=0.25,maxDaysLate=3):
-        """ Qualtrics self-grading survey import. 
+    def selfGradingImport(
+        self, assignmentNum, ecscore=3, checkLate=True, latePenalty=0.25, maxDaysLate=3
+    ):
+        """ Qualtrics self-grading survey import.
 
         Args:
             assignmentNum (int):
-                Number of assignment. Name of survey will be 
+                Number of assignment. Name of survey will be
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW#
             escore (int):
@@ -1719,62 +1970,88 @@ class cornellGrading():
             checkLate (bool):
                 Check for late submissions (defaults true)
             latePenalty (float):
-                Fraction of score to remove for lateness (defaults to 0.25).  Must be in (0,1).
+                Fraction of score to remove for lateness (defaults to 0.25).
+                Must be in (0,1).
             maxDaysLate (float):
                 After this number of days past deadline, HW gets zero. Defaults to 3.
         Returns:
             None
 
         Notes:
-            To whitelist late submissions, in Canvas gradebook, click on the submission, 
+            To whitelist late submissions, in Canvas gradebook, click on the submission,
             click the right arrow, and then set status to 'None'.
 
         """
 
-        #grab the canvas column
-        hwname = "HW%d"%assignmentNum
+        # grab the canvas column
+        hwname = "HW%d" % assignmentNum
         hw = self.getAssignment(hwname)
         duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
         totscore = hw.points_possible
 
-        #grab the survey
-        surveyname = "%s HW%d Self-Grade"%(self.coursename,assignmentNum)
+        # grab the survey
+        surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
         surveyId = self.getSurveyId(surveyname)
         tmpdir = self.exportSurvey(surveyId)
 
-        if ':' in surveyname:
-            surveyname = surveyname.replace(':','_')
-        tmpfile = os.path.join(tmpdir,surveyname+".csv")
-        assert  os.path.isfile(tmpfile), "Survey results not where expected."
+        if ":" in surveyname:
+            surveyname = surveyname.replace(":", "_")
+        tmpfile = os.path.join(tmpdir, surveyname + ".csv")
+        assert os.path.isfile(tmpfile), "Survey results not where expected."
 
-        qualtrics = pandas.read_csv(tmpfile,header=[0,1,2])
-        #find netid and question cols in Qualtrics
-        qnetidcol = qualtrics.columns.get_level_values(0)[np.array(["Enter your netid" in c for c in qualtrics.columns.get_level_values(1)])]
+        qualtrics = pandas.read_csv(tmpfile, header=[0, 1, 2])
+        # find netid and question cols in Qualtrics
+        qnetidcol = qualtrics.columns.get_level_values(0)[
+            np.array(
+                ["Enter your netid" in c for c in qualtrics.columns.get_level_values(1)]
+            )
+        ]
 
-        #if not netid col, assume that this is a private survey and grab the email col
+        # if not netid col, assume that this is a private survey and grab the email col
         if qnetidcol.empty:
-            qnetids = np.array([e[0].split('@')[0] for e in qualtrics['RecipientEmail'].values])
+            qnetids = np.array(
+                [e[0].split("@")[0] for e in qualtrics["RecipientEmail"].values]
+            )
         else:
-            qnetids = np.array([n[0].lower() for n in qualtrics[qnetidcol].values]) 
+            qnetids = np.array([n[0].lower() for n in qualtrics[qnetidcol].values])
 
-        #calculate total scores
-        quescolinds = np.array(["Question" in c and "Score" in c for c in qualtrics.columns.get_level_values(1)])
+        # calculate total scores
+        quescolinds = np.array(
+            [
+                "Question" in c and "Score" in c
+                for c in qualtrics.columns.get_level_values(1)
+            ]
+        )
         if np.any(quescolinds):
             quescols = qualtrics.columns.get_level_values(0)[quescolinds]
             quesnames = qualtrics.columns.get_level_values(1)[quescolinds]
-            isec = np.array(['Extra Credit' in c for c in quesnames])
+            isec = np.array(["Extra Credit" in c for c in quesnames])
 
-            scores = qualtrics[quescols[~isec]].values.sum(axis=1)/3./len(quescols[~isec])*totscore
+            scores = (
+                qualtrics[quescols[~isec]].values.sum(axis=1)
+                / 3.0
+                / len(quescols[~isec])
+                * totscore
+            )
             if np.any(isec):
-                scores += qualtrics[quescols[isec]].values.sum(axis=1)/3./len(quescols[isec])*ecscore
+                scores += (
+                    qualtrics[quescols[isec]].values.sum(axis=1)
+                    / 3.0
+                    / len(quescols[isec])
+                    * ecscore
+                )
         else:
-            totscorecol = qualtrics.columns.get_level_values(0)[np.array(["HW Score" in c for c in qualtrics.columns.get_level_values(1)])]
-            assert not(totscorecol.empty),"Cannot locate any scores."
+            totscorecol = qualtrics.columns.get_level_values(0)[
+                np.array(
+                    ["HW Score" in c for c in qualtrics.columns.get_level_values(1)]
+                )
+            ]
+            assert not (totscorecol.empty), "Cannot locate any scores."
             scores = np.array(qualtrics[totscorecol].values).astype(float)
 
         if checkLate:
-            #get submission times
-            tmp = hw.get_submissions() 
+            # get submission times
+            tmp = hw.get_submissions()
             subnetids = []
             subtimes = []
             lates = []
@@ -1782,7 +2059,9 @@ class cornellGrading():
                 if t.user_id in self.ids:
                     subnetids.append(self.netids[self.ids == t.user_id][0])
                     if t.submitted_at:
-                        subtime = datetime.strptime(t.submitted_at, """%Y-%m-%dT%H:%M:%S%z""")
+                        subtime = datetime.strptime(
+                            t.submitted_at, """%Y-%m-%dT%H:%M:%S%z"""
+                        )
                         tdelta = duedate - subtime
                         subtimes.append(tdelta.total_seconds())
                     else:
@@ -1793,18 +2072,22 @@ class cornellGrading():
             subtimes = np.array(subtimes)
             lates = np.array(lates)
 
-            #update scores based on lateness
-            for j,i in enumerate(qnetids):
+            # update scores based on lateness
+            for j, i in enumerate(qnetids):
                 if (i == i) and (i in self.netids):
                     if np.isnan(subtimes[subnetids == i][0]):
                         scores[j] = 0
                     else:
-                        #if late but within 3 days, take away 25% of the totscore
-                        if (subtimes[subnetids == i][0] < -5*60.) and lates[subnetids == i][0]:
-                            scores[j] -= totscore*latePenalty
-                        #if more than 3 days, they get NOTHING
-                        if (subtimes[subnetids == i][0] < -5*60. - maxDaysLate*86400.):
+                        # if late but within 3 days, take away 25% of the totscore
+                        if (subtimes[subnetids == i][0] < -5 * 60.0) and lates[
+                            subnetids == i
+                        ][0]:
+                            scores[j] -= totscore * latePenalty
+                        # if more than 3 days, they get NOTHING
+                        if (
+                            subtimes[subnetids == i][0]
+                            < -5 * 60.0 - maxDaysLate * 86400.0
+                        ):
                             scores[j] = 0
 
         self.uploadScores(hw, qnetids, scores)
-

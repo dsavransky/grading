@@ -1594,7 +1594,7 @@ class cornellGrading:
             _ = parser.feed(line)
             if parser.inBody:
                 tmp = p.sub(convlatex, line)
-                tmp = re.sub(srcstrs, srcstrr, re.sub(imstyles, imstyler, tmp)).strip()
+                tmp = re.sub(srcstrs, srcstrr, re.sub(imstyles, imstyler, tmp))
                 while parser.imagesUploaded:
                     imup = parser.imagesUploaded.pop()
                     figcap = parser.figcaptions.pop()

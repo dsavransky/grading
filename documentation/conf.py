@@ -38,10 +38,14 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    'sphinx_rtd_theme'
+    'sphinx_rtd_theme',
+    'recommonmark'
 ]
 
-source_suffix = '.rst'
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md':  'markdown',
+}
 
 # The master toctree document.
 master_doc = 'index'

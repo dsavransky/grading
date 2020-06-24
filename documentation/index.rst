@@ -10,6 +10,7 @@ Welcome to cornellGrading's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   usage
    cornellGrading
 
 Indices and tables

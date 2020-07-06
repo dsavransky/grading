@@ -1502,10 +1502,14 @@ class cornellGrading:
                 self.inSpan = False
                 self.imagesUploaded = []
                 self.figcaptions = []
+                self.inStyle = False
+                self.spanp = re.compile(r"span.(.*?) {(.*?)}")
+                self.spanDefs = {}
 
             def handle_starttag(self, tag, attrs):
                 if tag == "body":
                     self.inBody = True
+
                 if tag == "img":
                     imsrc = dict(attrs)["src"]
                     # anyting that's not a link must be an actual image
@@ -1561,6 +1565,9 @@ class cornellGrading:
                 if tag == "span":
                     self.inSpan = True
 
+                if tag == "style":
+                    self.inStyle = True
+
             def handle_endtag(self, tag):
                 if tag == "body":
                     self.inBody = False
@@ -1571,9 +1578,18 @@ class cornellGrading:
                 if tag == "span":
                     self.inSpan = False
 
+                if tag == "style":
+                    self.inStyle = False
+
             def handle_data(self, data):
                 if self.inFigcaption and not (self.inSpan):
                     self.figcaptions.append(data)
+
+                if self.inStyle:
+                    tmp = self.spanp.findall(data)
+                    if tmp:
+                        for t in tmp:
+                            self.spanDefs['class="{}"'.format(t[0])] = t[1]
 
             # end MyHTMLParser
 
@@ -1605,6 +1621,10 @@ class cornellGrading:
                     )
                     tmp = re.sub(r'src="{0}"'.format(imup["orig"]), canvasimurl, tmp)
                     tmp = re.sub(r'alt=""', r'alt="{0}"'.format(figcap), tmp)
+
+                if parser.spanDefs:
+                    for cl, val in parser.spanDefs.items():
+                        tmp = re.sub(cl, 'style="{}"'.format(val), tmp)
 
                 out.append(tmp)
 

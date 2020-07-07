@@ -8,7 +8,26 @@ Please note: the Canvas routines have the potential to bork your gradebook and (
 
 cornellGrading Installation
 ==============================
-In the cloned grading directory:
+To install from PyPI:
+
+```
+pip install cornellGrading
+```
+
+Or, with optional dependencies required to push LaTeX into Canvas HTML:
+
+```
+pip install cornellGrading[latex2html]
+```
+
+---
+**NOTE**
+
+The `latex2html` option requires the pandoc executable to be installed and in the system PATH.  For detailed pandoc installation instructions see here: https://pandoc.org/installing.html
+
+---
+
+If cloning from github, in the cloned grading directory:
 
 ```
 pip install --user .
@@ -25,8 +44,6 @@ In order to also install requirements needed push LaTeX into Canvas HTML, do:
 ```
 pip install --user -e .[latex2html]
 ```
-
-The `latex2html` option requires the pandoc executable to be installed and in the system PATH.  For detailed pandoc installation instructions see here: https://pandoc.org/installing.html
 
 cornellGrading Documentation
 ================================

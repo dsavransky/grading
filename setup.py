@@ -21,6 +21,7 @@ setuptools.setup(
     version=version_string,
     author="Dmitry Savransky",
     author_email="ds264@cornell.edu",
+    license='MIT',
     description="Routines for interacting with Cornell installations of Canvas and Qualtrics",
     long_description=long_description,
     long_description_content_type="text/markdown",

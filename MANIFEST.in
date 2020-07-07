@@ -1,0 +1,6 @@
+include LICENSE README.md
+recursive-exclude tests *
+recursive-exclude documentation *
+recursive-exclude MATLAB-autograde *
+exclude requirements.txt .gitignore .travis.yml .coveragerc genSemesterCalender.py
+

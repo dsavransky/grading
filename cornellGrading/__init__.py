@@ -1,3 +1,3 @@
-name = "MeanStars"
-__version__ = '1.1.0'
+name = "cornellGrading"
+__version__ = '1.0.0'
 from .cornellGrading import cornellGrading

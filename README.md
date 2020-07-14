@@ -13,14 +13,16 @@ cornellGrading Installation
 To install from PyPI:
 
 ```
-pip install cornellGrading
+pip install --user cornellGrading
 ```
 
 Or, with optional dependencies required to push LaTeX into Canvas HTML:
 
 ```
-pip install cornellGrading[latex2html]
+pip install --user cornellGrading[latex2html]
 ```
+
+To install system-wide, omit the `--user` option.
 
 ---
 **NOTE**

@@ -463,7 +463,7 @@ class cornellGrading:
             upepoint = upurl.split("/download")[0]
 
             body = (
-                """<p>Downloadable Assignment: <a class="instructure_file_link """
+                """<p>Downloadable PDF: <a class="instructure_file_link """
                 """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
                 """data-api-endpoint="{2}" data-api-returntype="File">{0}</a>"""
                 """</p>""".format(upfname, upurl, upepoint)

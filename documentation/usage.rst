@@ -58,7 +58,7 @@ On the qualtrics site:
 #. Click the 'Generate Token' button under API
 #. This page also lists all other IDs you need to know
 
-You will need to enter this token the first time you run :py:meth:`cornellGrading.cornellGrading.setupQualtrics`.
+You will need to enter this token the first time you run :py:func:`~cornellGrading.cornellGrading.setupQualtrics`
 
 .. note::
 
@@ -214,7 +214,7 @@ This will create a  'Homework Self-Grading' assignment group (if it does not alr
 Grab Self-Grading Results and Upload to Canvas
 ------------------------------------------------
 
-Finally, once students have completed their self-assessment via Qualtrics, we need to move their scores into the Canvas gradebook.  This is done via the ``selfGradingImport`` method.  Again, this assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number, and also that you have assigned a point value to the assignment in Canvas (if you're using the single-question survey variant, and not checking for late submissions, the latter is not required).
+Finally, once students have completed their self-assessment via Qualtrics, we need to move their scores into the Canvas gradebook.  This is done via the :py:meth:`~cornellGrading.cornellGrading.selfGradingImport` method.  Again, this assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number, and also that you have assigned a point value to the assignment in Canvas (if you're using the single-question survey variant, and not checking for late submissions, the latter is not required).
 
 In python:
 
@@ -243,7 +243,7 @@ Assuming you have instantiated a `cornellGrading` object as `c`, as above, you c
 
 .. code-block:: python
 
-    res = latex2page(fname, title)
+    res = c.latex2page(fname, title)
 
 where `fname` is the full path to either the LaTeX source or the PDF compiled from the source (which must be in the same directory as the source), and `title` is the title for the generated page.  Other method options include:
 

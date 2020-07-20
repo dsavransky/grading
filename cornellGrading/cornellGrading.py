@@ -35,12 +35,19 @@ class cornellGrading:
 
     """
 
-    def __init__(self, canvasurl="https://canvas.cornell.edu"):
+    def __init__(self, canvasurl="https://canvas.cornell.edu", canvas_token_file=None):
         """ Ask for token, store it if you can connect, and
         save resulting canvas object
 
-        To generate token: in Canvas: Settings>Account>Approved Integrations
-        Click '+New Access Token'.  Copy the token.
+        Args:
+            canvasurl (str):
+                Base URL of Canvas
+            canvas_token_file (str):
+                Full path to text file with canvas token on disk.
+
+        Notes:
+            To generate token: in Canvas: Settings>Account>Approved Integrations
+            Click '+New Access Token'.  Copy the token.
 
         .. warning::
             The token will *not* be displayed again. However, it will be saved securely
@@ -54,7 +61,12 @@ class cornellGrading:
 
         token = keyring.get_password("canvas_test_token1", "canvas")
         if token is None:
-            token = getpass.getpass("Enter canvas token:\n")
+            if canvas_token_file is None:
+                token = getpass.getpass("Enter canvas token:\n")
+            else:
+                with open("canvas_token.txt", "r") as f:
+                    tmp = f.read()
+                token = tmp.strip()
             try:
                 canvas = Canvas(canvasurl, token)
                 canvas.get_current_user()

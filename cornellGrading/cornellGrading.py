@@ -64,7 +64,7 @@ class cornellGrading:
             if canvas_token_file is None:
                 token = getpass.getpass("Enter canvas token:\n")
             else:
-                with open("canvas_token.txt", "r") as f:
+                with open(canvas_token_file, "r") as f:
                     tmp = f.read()
                 token = tmp.strip()
             try:

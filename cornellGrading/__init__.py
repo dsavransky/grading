@@ -1,3 +1,3 @@
 name = "cornellGrading"
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 from .cornellGrading import cornellGrading

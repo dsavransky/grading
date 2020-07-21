@@ -114,7 +114,7 @@ Now, in python:
 
 .. note::
 
-   On Windows, when running python in a ``cmd`` shell, pasting the API token into the shell will **not** work.  Instead, you can provide your token via a plain-text file, by using the keyword ``canvas_token_file`` and providing the full path to the file containing your token.  So, the first `cornellGrading` call above would be: ``c = cornellGrading(canvas_token_file='path_to_token_file')``.  Note that you only need to do this on your first ever instantiation of the object - the token will be save to your system's keychain after the first successful connection. You can then delete the text file from your system, if you wish, or save it for future use (but be sure to save it in a secure fashion).
+   On Windows, when running python in a ``cmd`` shell, pasting the API token into the shell will **not** work.  Instead, you can provide your token via a plain-text file, by using the keyword ``canvas_token_file`` and providing the full path to the file containing your token.  So, the first `cornellGrading` call above would be: ``c = cornellGrading(canvas_token_file=r'path_to_token_file')``.  Note that you only need to do this on your first ever instantiation of the object - the token will be save to your system's keychain after the first successful connection. You can then delete the text file from your system, if you wish, or save it for future use (but be sure to save it in a secure fashion).
 
 
 

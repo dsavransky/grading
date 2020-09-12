@@ -1326,6 +1326,7 @@ class cornellGrading:
         totscore=10,
         unlockDelta=None,
         injectText=False,
+        allowed_extensions=None,
     ):
         """ Create a Canvas assignment, set the duedae, upload an associated
         PDF and link in the assignment description, set the number of points, and
@@ -1349,6 +1350,8 @@ class cornellGrading:
                 provided PDF in hwfile (looking in the same directory), will then
                 convert to Canvas compatible html using pandoc, and add to the
                 assignment description.  Requires pandoc to be installed and callable!
+            allowed_extensions (list):
+                List of strings for allowed extensions
 
         Returns:
             canvasapi.assignment.Assignment
@@ -1410,6 +1413,7 @@ class cornellGrading:
             due_at=duedate,
             unlock_at=unlockAt,
             submission_types=["online_upload"],
+            allowed_extensions=allowed_extensions,
         )
 
         return hw
@@ -1466,12 +1470,29 @@ class cornellGrading:
         tmpdir = tempfile.gettempdir()
         htmlf = os.path.join(tmpdir, hwf.split(os.extsep)[0] + os.extsep + "html")
 
+        # preflight: let's replace tex commands that Canvas can't handle
+        texsubdict = {r"\\nicefrac": r"\\frac",
+                      r"\\ensuremath": ""}
+
+        # read orig tex
+        with open(os.path.join(hwd, texf)) as f:
+            lines = f.readlines()
+
+        for j, ll in enumerate(lines):
+            for key, val in texsubdict.items():
+                ll = re.sub(key, val, ll)
+            lines[j] = ll
+
+        with open(os.path.join(tmpdir, texf), "w") as f:
+            for ll in lines:
+                f.write(ll)
+
         # run pandoc
         if hwd:
             _ = subprocess.run(
                 [
                     "pandoc",
-                    texf,
+                    os.path.join(tmpdir, texf),
                     "-s",
                     "--webtex",
                     "-o",
@@ -1486,7 +1507,7 @@ class cornellGrading:
             _ = subprocess.run(
                 [
                     "pandoc",
-                    texf,
+                    os.path.join(tmpdir, texf),
                     "-s",
                     "--webtex",
                     "-o",
@@ -1497,6 +1518,7 @@ class cornellGrading:
                 check=True,
                 capture_output=True,
             )
+
         assert os.path.exists(htmlf), "Cannot locate html output %s" % htmlf
 
         # read result

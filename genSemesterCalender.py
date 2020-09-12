@@ -6,8 +6,8 @@ import os.path
 basepath = '/Users/ds264/Documents/Courses/MAE4060/2020Fall/'
 curryear = '2020'
 semester_dates = os.path.join(basepath,'semester_dates.txt')
-with open(semester_dates) as f: 
-    datesraw = f.readlines() 
+with open(semester_dates) as f:
+    datesraw = f.readlines()
 
 dateparse = re.compile('\\\\newcommand{(.*?)}{(.*?)}')
 dates = {}
@@ -54,7 +54,7 @@ while (dates['lastday']-now).days >= 0:
     now += timedelta(days=1)
 
 lecture_dates = os.path.join(basepath,'lecture_dates.txt')
-with open(lecture_dates,'w') as f: 
+with open(lecture_dates,'w') as f:
     for c in cal:
         f.write("%s\n"%c)
 
@@ -67,21 +67,21 @@ class mylecs():
         self.hwcounter = 1
         self.basepath = basepath
         lecs = os.path.join(basepath,'lecture_topics_and_readings.txt')
-        with open(lecs) as f: 
-            lecs = f.readlines() 
+        with open(lecs) as f:
+            lecs = f.readlines()
         self.lecs = lecs
 
-        self.p = re.compile('\\\\textbf{(.*?)}') 
-        self.convbf = lambda x: "<b>{0}</b>".format(x.groups()[0]) 
+        self.p = re.compile('\\\\textbf{(.*?)}')
+        self.convbf = lambda x: "<b>{0}</b>".format(x.groups()[0])
 
         hwdates = os.path.join(basepath,'hw_dates.txt')
-        with open(hwdates) as f: 
-            hwdates = f.readlines() 
+        with open(hwdates) as f:
+            hwdates = f.readlines()
         self.hwdates = hwdates
 
         lecdates = os.path.join(basepath,'lecture_dates.txt')
-        with open(lecdates) as f: 
-            lecdates = f.readlines() 
+        with open(lecdates) as f:
+            lecdates = f.readlines()
         self.lecdates = lecdates
 
 
@@ -146,39 +146,84 @@ out+='''
 with open('/Users/ds264/Downloads/feh.html','w') as f: f.write(out)
 
 
+#####
+class mylecs2():
+    def __init__(self,basepath):
+        self.weekcounter = 0
+        self.leccounter = 1
+        self.hwcounter = 1
+        self.basepath = basepath
+        lecs = os.path.join(basepath,'weekly_lectures_readings.txt')
+        with open(lecs) as f:
+            lecs = f.readlines()
+        self.lecs = lecs
+
+        self.p = re.compile('\\\\textbf{(.*?)}')
+        self.convbf = lambda x: "<b>{0}</b>".format(x.groups()[0])
+
+        hwdates = os.path.join(basepath,'hw_dates.txt')
+        with open(hwdates) as f:
+            hwdates = f.readlines()
+        self.hwdates = hwdates
+
+        lecdates = os.path.join(basepath,'lecture_dates.txt')
+        with open(lecdates) as f:
+            lecdates = f.readlines()
+        self.lecdates = lecdates
+
+    def nextweek(self):
+        self.weekcounter += 1
+        return r'<td style="width: 5%;">{0}</td>'.format(self.weekcounter)
+
+    def nextdates(self,n=1):
+        out = r'<td style="width: 5%;">'
+
+        for j in range(n):
+            out += r"{} ".format(self.lecdates.pop(0).strip())
+
+        out += r'</td>'
+
+        return out
+
+    def nextlec(self):
+        tmp = self.lecs.pop(0)
+        tmp = tmp.split('&')
+        out = r'<td style="width: 45%;">{0}</td><td style="width: 25%;">{1}</td>'.format(re.sub('~',' ',tmp[0].strip()),re.sub('~',' ',tmp[1].strip()))
+        self.leccounter += 1
+        return out
+
+    def nexthw(self):
+        out = r'<td style="width: 15%;">HW {0}<br/>Due {1}</td>'.format(self.hwcounter,\
+                self.p.sub(self.convbf,self.hwdates.pop(0).strip()))
+        self.hwcounter += 1
+        return out
 
 
-\nextlec & \multirow{4}{*}{\begin{minipage}{0.2\textwidth}\nexthw \end{minipage}} \\ %16
-\cline{1-3}
-\nextlec &  \\ %17
-\cline{1-3}
-\multicolumn{3}{|c|}{ \cellcolor[gray]{0.9} Prelim - \prelim } & \\
-\cline{1-3}
-\nextlec &  \\ %18
-\hline
-\nextlec&  \multirow{3}{*}{\begin{minipage}{0.2\textwidth} \nexthw \end{minipage}} \\ %19
-\cline{1-3}
-\nextlec  &\\ %20
-\cline{1-3}
-\nextlec& \\ %21
-\hline
-\nextlec  &  \multirow{2}{*}{\begin{minipage}{0.2\textwidth} \nexthw \end{minipage}} \\ %22
-\cline{1-3}
-\nextlec & \\ %23
-\hline 
-\nextlec &   \multirow{5}{*}{\begin{minipage}{0.2\textwidth} \nexthw \end{minipage}} \\ %24
-\cline{1-3}
-\nextlec &  \\ %25
-\cline{1-3}
-\multicolumn{3}{|c|}{ \cellcolor[gray]{0.9} Thanksgiving Break \thanksgiving } & \\
-\cline{1-3}
-\nextlec &\\ %26
-\cline{1-3}
-\nextlec &\\ %27
-\hline
-\nextlec &\\ %28
-\hline
-\multicolumn{4}{|c|}{ \cellcolor[gray]{0.9} Final Exam}  \\ 
-\hline
-\end{longtable}
+ll = mylecs2(basepath)
+
+out = '''<table style="border-collapse: collapse; width: 100%;" border="1">
+<tbody>
+<tr><td style="width: 5%;">Week</td><<td style="width: 5%;">Dates</td><td style="width: 45%;">Topic</td><td style="width: 25%;">Supplemental Reading</td><td style="width: 15%;">Homework</td></tr>
+'''
+
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #1
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #2
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #3
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #4
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #5
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #6
+out += '<tr><td style="background-color: #eeeeee;" colspan=5>No classes 10/14</td></tr>\n'
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #7
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #8
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #9
+out += "<tr>"+ll.nextweek()+ll.nextdates(3)+ll.nextlec()+ll.nexthw()+"</tr>\n" #10
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #11
+out += "<tr>"+ll.nextweek()+ll.nextdates(3)+ll.nextlec()+ r'<td style="width: 15%;">Project Drafts <br/> Due 12/16</td></tr>\n' #12
+out += '<tr><td style="background-color: #eeeeee;" colspan=5>Last Day of Classes 12/16. Final Exams 12/17-12/21</td></tr>\n'
+
+out+='''
+</tbody>
+</table>'''
+
+with open('/Users/ds264/Downloads/feh.html','w') as f: f.write(out)
 

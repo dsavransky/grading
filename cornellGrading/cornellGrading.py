@@ -1531,18 +1531,26 @@ class cornellGrading:
         class MyHTMLParser(HTMLParser):
             def __init__(self):
                 HTMLParser.__init__(self)
-                self.inBody = False
-                self.inFigcaption = False
-                self.inSpan = False
-                self.imagesUploaded = []
-                self.figcaptions = []
-                self.inStyle = False
+                self.inBody = False  # toggle for inside body block
+                self.inFigcaption = False  # toggle for inside figure caption
+                self.inSpan = False  # toggle for inside span
+                self.imagesUploaded = []  # storage for images uploaded
+                self.figcaptions = []  # storage for uploaded image captions
+                self.inStyle = False  # toggle for inisde style
                 self.spanp = re.compile(r"span.(.*?) {(.*?)}")
                 self.spanDefs = {}
+                self.inOL = False  # toggle for inside ordered list
+                self.inNestedOL = False  # toggle for inside nested ordered list
 
             def handle_starttag(self, tag, attrs):
                 if tag == "body":
                     self.inBody = True
+
+                if tag == "ol":
+                    if self.inOL is True:
+                        self.inNestedOL = True
+                    else:
+                        self.inOL = True
 
                 if tag == "img":
                     imsrc = dict(attrs)["src"]
@@ -1606,6 +1614,12 @@ class cornellGrading:
                 if tag == "body":
                     self.inBody = False
 
+                if tag == "ol":
+                    if self.inNestedOL is True:
+                        self.inNestedOL = False
+                    else:
+                        self.inOL = False
+
                 if tag == "figcaption":
                     self.inFigcaption = False
 
@@ -1659,6 +1673,9 @@ class cornellGrading:
                 if parser.spanDefs:
                     for cl, val in parser.spanDefs.items():
                         tmp = re.sub(cl, 'style="{}"'.format(val), tmp)
+
+                if parser.inNestedOL:
+                    tmp = re.sub(r'<ol>', r'<ol type="a">', tmp)
 
                 out.append(tmp)
 

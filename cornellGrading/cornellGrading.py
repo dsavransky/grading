@@ -1537,7 +1537,7 @@ class cornellGrading:
                 self.imagesUploaded = []  # storage for images uploaded
                 self.figcaptions = []  # storage for uploaded image captions
                 self.inStyle = False  # toggle for inisde style
-                self.spanp = re.compile(r"span.(.*?) {(.*?)}")
+                self.spanp = re.compile(r"span.(.*?)\s*{(.*?)}")
                 self.spanDefs = {}
                 self.inOL = False  # toggle for inside ordered list
                 self.inNestedOL = False  # toggle for inside nested ordered list

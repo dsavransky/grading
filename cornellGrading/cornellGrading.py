@@ -2160,5 +2160,6 @@ class cornellGrading:
                             < -5 * 60.0 - maxDaysLate * 86400.0
                         ):
                             scores[j] = 0
+            scores[scores < 0] = 0
 
         self.uploadScores(hw, qnetids, scores)

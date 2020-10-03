@@ -1764,7 +1764,7 @@ class cornellGrading:
                 desc = "Question %d Score" % j
 
             questionDef = {
-                "QuestionText": "Question %d Score" % j,
+                "QuestionText": desc,
                 "DataExportTag": "Q%d" % (j + 1),
                 "QuestionType": "MC",
                 "Selector": "SAVR",
@@ -1785,7 +1785,7 @@ class cornellGrading:
                 "DataVisibility": {"Private": False, "Hidden": False},
                 "NextChoiceId": 5,
                 "NextAnswerId": 1,
-                "QuestionText_Unsafe": "Question %d Score" % j,
+                "QuestionText_Unsafe": desc,
             }
             response = requests.post(baseUrl, json=questionDef, headers=headers)
             assert response.status_code == 200, "Couldn't add problem question."

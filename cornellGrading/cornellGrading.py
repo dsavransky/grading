@@ -1471,8 +1471,7 @@ class cornellGrading:
         htmlf = os.path.join(tmpdir, hwf.split(os.extsep)[0] + os.extsep + "html")
 
         # preflight: let's replace tex commands that Canvas can't handle
-        texsubdict = {r"\\nicefrac": r"\\frac",
-                      r"\\ensuremath": ""}
+        texsubdict = {r"\\nicefrac": r"\\frac", r"\\ensuremath": ""}
 
         # read orig tex
         with open(os.path.join(hwd, texf)) as f:
@@ -1675,14 +1674,14 @@ class cornellGrading:
                         tmp = re.sub(cl, 'style="{}"'.format(val), tmp)
 
                 if parser.inNestedOL:
-                    tmp = re.sub(r'<ol>', r'<ol type="a">', tmp)
+                    tmp = re.sub(r"<ol>", r'<ol type="a">', tmp)
 
                 out.append(tmp)
 
         out = out[1:]
         return out
 
-    def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None):
+    def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None, ecprobs=[]):
         """ Create a HW self-grade survey and make private
 
         Args:
@@ -1692,7 +1691,8 @@ class cornellGrading:
                 Number of problems on the HW. Set to 0 for total score only.
             scoreOptions (list of ints):
                 Possible responses to each question.  Defaults to 0,1,2,3
-
+            ecprobs (list of ints):
+                Problems to be marked as extra credit (problem numbering starts at 1)
 
         Returns:
             str:
@@ -1721,6 +1721,7 @@ class cornellGrading:
 
         if scoreOptions is None:
             scoreOptions = [0, 1, 2, 3]
+        assert isinstance(ecprobs, list), "ecprobs must be a list"
 
         choices = {}
         for j, choice in enumerate(scoreOptions):
@@ -1757,6 +1758,11 @@ class cornellGrading:
 
         # add rubric questions for all problems
         for j in range(1, nprobs + 1):
+            if j in ecprobs:
+                desc = "Question %d (Extra Credit) Score" % j
+            else:
+                desc = "Question %d Score" % j
+
             questionDef = {
                 "QuestionText": "Question %d Score" % j,
                 "DataExportTag": "Q%d" % (j + 1),
@@ -1764,7 +1770,7 @@ class cornellGrading:
                 "Selector": "SAVR",
                 "SubSelector": "TX",
                 "Configuration": {"QuestionDescriptionOption": "UseText"},
-                "QuestionDescription": "Question %d Score" % j,
+                "QuestionDescription": desc,
                 "Choices": choices,
                 "ChoiceOrder": choiceOrder,
                 "Validation": {
@@ -1829,6 +1835,7 @@ class cornellGrading:
         self,
         assignmentNum,
         nprobs,
+        ecprobs=[],
         sharewith=None,
         scoreOptions=None,
         createAss=False,
@@ -1848,6 +1855,8 @@ class cornellGrading:
                 Name of assignment will be HW# Self-Grading
             nprobs (int):
                 Number of howmework problems
+            ecprobs (list of ints):
+                Problems to be marked as extra credit (problem numbering starts at 1)
             sharewith (str):
                 Qualtrics id to share survey with. Defaults to None
             scoreOptions (list of ints):
@@ -1876,7 +1885,7 @@ class cornellGrading:
         # create survey and distribution
         surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
         surveyId = self.genPrivateHWSurvey(
-            surveyname, nprobs, scoreOptions=scoreOptions
+            surveyname, nprobs, ecprobs=ecprobs, scoreOptions=scoreOptions
         )
 
         if sharewith:

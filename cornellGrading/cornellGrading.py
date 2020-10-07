@@ -2172,3 +2172,38 @@ class cornellGrading:
             scores[scores < 0] = 0
 
         self.uploadScores(hw, qnetids, scores)
+
+    def getGroups(self, outfile=None):
+        """ Create a csv file of group membership
+
+        Args:
+            outfile (str):
+                Full path to output file. If not set, defaults to coursename Groups.csv
+                in current directory.
+
+        Returns:
+            None
+
+        Notes:
+            This functionality is targeted at generating zoom breakout rooms, which is
+            why the csv headers are what they are.
+
+        """
+
+        if outfile is None:
+            outfile = "{} Groups.csv".format(self.coursename)
+
+        grps = self.course.get_groups()
+
+        grpname = []
+        grpmember = []
+        for grp in grps:
+            usrs = grp.get_users()
+            for usr in usrs:
+                grpname.append(grp.name)
+                grpmember.append(usr.login_id + "@cornell.edu")
+
+        out = pandas.DataFrame(
+            {"Pre-assign Room Name": grpname, "Email Address": grpmember}
+        )
+        out.to_csv(outfile, index=False)

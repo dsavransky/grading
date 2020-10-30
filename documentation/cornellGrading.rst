@@ -20,6 +20,14 @@ cornellGrading.cornellGrading module
    :undoc-members:
    :show-inheritance:
 
+cornellGrading.cornellQualtrics module
+--------------------------------------
+
+.. automodule:: cornellGrading.cornellQualtrics
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 cornellGrading.matlabgrader module
 ----------------------------------
 
@@ -35,7 +43,6 @@ cornellGrading.setupSelfGrading module
    :members:
    :undoc-members:
    :show-inheritance:
-
 
 Module contents
 ---------------

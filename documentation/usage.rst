@@ -1,77 +1,5 @@
-Installation
-==============================
-To install from PyPI: ::
-
-    pip install --user cornellGrading
-
-Or, with optional dependencies required to push LaTeX into Canvas HTML: ::
-
-    
-    pip install --user cornellGrading[latex2html]
-
-To install system-wide, omit the ``--user`` option.
-
-.. note::
-
-    The ``latex2html`` option requires the pandoc executable to be installed and in the system PATH.  For detailed pandoc installation instructions see here: https://pandoc.org/installing.html
-
-If cloning from github, in the cloned grading directory: ::
-
-
-    pip install --user .
-
-or, to install in developer mode: ::
-
-
-    pip install --user -e .
-
-In order to also install requirements needed push LaTeX into Canvas HTML, do: ::
-
-
-    pip install --user -e .[latex2html]
-
-
-Canvas API Token
-===================
-To generate token, in Canvas: 
-
-#. Navigate to Account>Settings and scroll down to Approved Integrations
-#. Click '+New Access Token'.  Copy the token.  **NB: It won't be displayed again.**
-
-You will need to enter this token the first time you instantiate a :py:class:`cornellGrading.cornellGrading` object. If using Windows, you should save this token to a text file. Be sure that there is nothing other than the token in the file (white space afterwards is ok).
-
-.. note::
-
-   The token is stored in your system's keychain as ``canvas_test_token1`` and will be automatically loaded on all subsequent :py:class:`cornellGrading.cornellGrading` instantiations.  If you need to change the local token, you must manually delete it from the keychain. The token is entered as a secure password, and so you will not see the cursor move as you enter it. The token will only be saved if the connection to Canvas is successful.
-
-.. warning::
-
-    Windows users have reported issues copying and pasting this token into the command prompt.  It may be safest to just retype it into the prompt.
-
-
-
-Qualtrics API Token
-=============================================
-On the qualtrics site:
-
-#. Navigate to: Account Settings>Qualtrics IDs
-#. Click the 'Generate Token' button under API
-#. This page also lists all other IDs you need to know
-
-You will need to enter this token the first time you run :py:func:`~cornellGrading.cornellGrading.setupQualtrics`
-
-.. note::
-
-   The token is stored in your system's keychain as ``qualtrics_token`` and will be automatically loaded on all subsequent :py:meth:`cornellGrading.cornellGrading.setupQualtrics` calls.  If you need to change the local token, you must manually delete it from the keychain. The token is entered as a secure password, and so you will not see the cursor move as you enter it. The token will only be saved if the connection to Canvas is successful.
-
-
-Qualtrics De-Anonymization
-==============================
-By default, Cornell anonymizes all survey responses, regardless of how you have set up your survey.  To fix this, email itservicedesk@cornell.edu and request that they toggle  "View Restricted Data" to On for your qualtrics account.
-
-
-Workflow
-============
+Course Workflows
+=================
 
 Initial Course Setup
 ------------------------
@@ -195,6 +123,7 @@ Upload Solutions and Create Self-Grading Assignment
 ------------------------------------------------------
 
 In addition to creating the HW survey in qualtrics and injecting links into the assignment comments, ``setupPrivateHW`` can also create a self-grading assignment on Canvas with the homework solutions and a due date that is different from the due date of the original assignment.  This functionality is toggled by passing ``createAss=True`` to the ``setupPrivateHW`` call.  The other relevant keyword arguments are:
+
 * ``solutions``: String, full path to solutions PDF file on your local disk
 * ``selfGradeDueDelta``: Float, number of days after original assignment due date for self-grading to be due (defaults to 7) 
 * ``selfGradeReleasedDelta``: Float, number of days after original assignment due date when the self-grading assignment is released to students (defaults to 3).

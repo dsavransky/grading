@@ -7,13 +7,11 @@ from datetime import datetime, timedelta
 import pytz
 from canvasapi import Canvas
 from canvasapi.exceptions import InvalidAccessToken
-import requests
-import zipfile
 import tempfile
-import io
 import os
 import re
 import warnings
+from cornellGrading.cornellQualtrics import cornellQualtrics
 
 try:
     import urllib.parse
@@ -54,8 +52,9 @@ class cornellGrading:
             in your keychain as soon as the first successful connection is made.
 
         .. warning::
-            Windows users have reported issues copying and pasting this token into the
-            command prompt.  It may be safest to just retype it into the prompt.
+            Windows users will have likely not be able to copy/paste this token into the
+            command prompt.  The best course is to use the canvas_token_file input, or
+            just retype it into the prompt.
 
         """
 
@@ -618,7 +617,10 @@ class cornellGrading:
         return
 
     def setupQualtrics(
-        self, dataCenter="cornell.ca1", qualtricsapi=".qualtrics.com/API/v3/"
+        self,
+        dataCenter="cornell.ca1",
+        qualtricsapi=".qualtrics.com/API/v3/",
+        qualtrics_token_file=None,
     ):
         """ Save/Load qualtrics api token and verify connection
 
@@ -627,6 +629,9 @@ class cornellGrading:
                 Root of datacenter url.  Defaults to Cornell value.
             qualtricsapi (str):
                 API url.  Defaults to v3 (current).
+            qualtrics_token_file (str):
+                Full path to text file with qualtrics token on disk.
+
         Returns:
             None
 
@@ -636,134 +641,15 @@ class cornellGrading:
             For an API token, on the qualtrics site, go to:
             Account Settings>Qualtrics IDs
             and click the 'Generate Token' button under API.
-        """
 
-        self.dataCenter = dataCenter
-        self.qualtricsapi = qualtricsapi
-        apiToken = keyring.get_password("qualtrics_token", "cornell.ca1")
-        if apiToken is None:
-            apiToken = getpass.getpass("Enter qualtrics token:\n")
-            self.apiToken = apiToken
-            res = self.listSurveys()
-            if res.status_code == 200:
-                keyring.set_password("qualtrics_token", "cornell.ca1", apiToken)
-                print("Connected. Token Saved")
-        else:
-            self.apiToken = apiToken
-            res = self.listSurveys()
-
-        try:
-            assert res.status_code == 200
-            print("Connected to Qualtrics.")
-        except AssertionError:
-            self.apiToken = None
-            print("Could not connect.")
-
-    def listSurveys(self):
-        """ Grab all available Qualtrics surveys
-
-        Args:
-            None
-
-        Returns:
-            requests.models.Response:
-                The response object with the surveys.
+        .. warning::
+            Windows users will have likely not be able to copy/paste this token into the
+            command prompt.  The best course is to use the qualtrics_token_file input,
+            or just retype it into the prompt.
 
         """
 
-        baseUrl = "https://{0}{1}surveys".format(self.dataCenter, self.qualtricsapi)
-        headers = {
-            "x-api-token": self.apiToken,
-        }
-        response = requests.get(baseUrl, headers=headers)
-
-        return response
-
-    def getSurveyNames(self):
-        """ Return a list of all current survey names.
-
-        Args:
-            None
-
-        Returns:
-            list:
-                All survey names
-
-        """
-        res = self.listSurveys()
-        surveynames = []
-        for el in res.json()["result"]["elements"]:
-            surveynames.append(el["name"])
-
-        return surveynames
-
-    def getSurveyId(self, surveyname):
-        """ Find qualtrics survey id by name.  Matching is exact.
-
-        Args:
-            surveyname (str):
-                Exact text of survey name
-
-        Returns:
-            str:
-                Unique survey id
-
-        """
-
-        res = self.listSurveys()
-        surveyid = None
-        for el in res.json()["result"]["elements"]:
-            if el["name"] == surveyname:
-                surveyid = el["id"]
-                break
-        assert surveyid, "Couldn't find survey for this assignment."
-
-        return surveyid
-
-    def listMailingLists(self):
-        """ Grab all available Qualtrics mailing lists
-
-        Args:
-            None
-
-        Returns:
-            requests.models.Response:
-                response object with all mailing lists
-
-        """
-
-        baseUrl = "https://{0}{1}mailinglists".format(
-            self.dataCenter, self.qualtricsapi,
-        )
-        headers = {
-            "x-api-token": self.apiToken,
-        }
-        response = requests.get(baseUrl, headers=headers)
-
-        return response
-
-    def getMailingListId(self, listname):
-        """ Find qualtrics mailinglist id by name.  Matching is exact.
-
-        Args:
-            listname (str):
-                Exact text of list name
-
-        Returns:
-            str:
-                Unique list id
-
-        """
-
-        res = self.listMailingLists()
-        mailinglistid = None
-        for el in res.json()["result"]["elements"]:
-            if el["name"] == listname:
-                mailinglistid = el["id"]
-                break
-        assert mailinglistid, "Couldn't find this mailing list."
-
-        return mailinglistid
+        self.qualtrics = cornellQualtrics()
 
     def genCourseMailingList(self):
         """ Generates a qualtrics mailing list with all the netids from the course
@@ -777,7 +663,7 @@ class cornellGrading:
         """
 
         # check that this one doesn't already exist
-        res = self.listMailingLists()
+        res = self.qualtrics.getMailingLists()
         assert self.coursename not in [
             el["name"] for el in res.json()["result"]["elements"]
         ], "Mailing list already exists for this course."
@@ -787,14 +673,10 @@ class cornellGrading:
         firstNames = names[:, 1]
         lastNames = names[:, 0]
 
-        mailingListId = self.genMailingList(self.coursename)
+        mailingListId = self.qualtrics.genMailingList(self.coursename)
 
         for fN, lN, em in zip(firstNames, lastNames, emails):
-            self.addListContact(mailingListId, fN, lN, em)
-
-        # out = {'FirstName':names[:,1],'LastName':names[:,0],'PrimaryEmail':emails}
-        # out = pandas.DataFrame(out)
-        # out.to_csv(outfile,encoding="utf-8",index=False)
+            self.qualtrics.addListContact(mailingListId, fN, lN, em)
 
     def updateCourseMailingList(self):
         """ Compares course qualtrics mailing list to current roster and updates
@@ -808,24 +690,12 @@ class cornellGrading:
 
         """
 
-        mailingListId = self.getMailingListId(self.coursename)
-
-        headers = {
-            "x-api-token": self.apiToken,
-            "content-type": "application/json",
-            "Accept": "application/json",
-        }
-
-        tmp = requests.get(
-            "https://{0}{2}mailinglists/{1}/contacts".format(
-                self.dataCenter, mailingListId, self.qualtricsapi,
-            ),
-            headers=headers,
-        )
+        # grab current list contacts and ids
+        mailingListId = self.qualtrics.getMailingListId(self.coursename)
+        tmp = self.qualtrics.getListContacts(mailingListId)
 
         listids = []
         listemails = []
-
         for el in tmp.json()["result"]["elements"]:
             listids.append(el["id"])
             listemails.append(el["email"])
@@ -835,294 +705,22 @@ class cornellGrading:
         firstNames = names[:, 1]
         lastNames = names[:, 0]
 
+        # find missing
         missing = list(set(emails) - set(listemails))
         if missing:
             for m in missing:
                 ind = emails == m
-                self.addListContact(
+                self.qualtrics.addListContact(
                     mailingListId, firstNames[ind][0], lastNames[ind][0], m
                 )
 
+        # find extraneous names
         extra = list(set(listemails) - set(emails))
         if extra:
             for e in extra:
-                response = requests.delete(
-                    "https://{0}{3}mailinglists/{1}/contacts/{2}".format(
-                        self.dataCenter,
-                        mailingListId,
-                        np.array(listids)[np.array(listemails) == e][0],
-                        self.qualtricsapi,
-                    ),
-                    headers=headers,
+                self.qualtrics.deleteListContact(
+                    mailingListId, np.array(listids)[np.array(listemails) == e][0]
                 )
-                assert (
-                    response.status_code == 200
-                ), "Could not remove contact from list."
-
-    def genMailingList(self, listName):
-        """ Generate mailing list
-
-        Args:
-            listname (str):
-                List name
-
-        Returns:
-            str:
-                Unique list id
-
-        """
-
-        # first we need to figure out what our personal library id is
-        headers = {
-            "x-api-token": self.apiToken,
-            "content-type": "application/json",
-            "Accept": "application/json",
-        }
-
-        tmp = requests.get(
-            "https://{0}{1}libraries".format(self.dataCenter, self.qualtricsapi),
-            headers=headers,
-        )
-
-        libId = None
-        for el in tmp.json()["result"]["elements"]:
-            if "UR_" in el["libraryId"] or "URH_" in el["libraryId"]:
-                libId = el["libraryId"]
-                break
-        assert libId is not None, "Could not identify library id."
-
-        data = {"libraryId": libId, "name": listName}
-
-        response = requests.post(
-            "https://{0}{1}mailinglists".format(self.dataCenter, self.qualtricsapi),
-            headers=headers,
-            json=data,
-        )
-        assert response.status_code == 200, "Could not create mailing list."
-
-        return response.json()["result"]["id"]
-
-    def addListContact(self, mailingListId, firstName, lastName, email):
-        """ Add a contact to a mailing list
-
-        Args:
-            mailingListId (str):
-                Unique id string of mailing lists.  Get either from we interface or via
-                getMailingListId
-            firstName (str):
-                First name
-            lastName (str):
-                duh
-            email (str):
-                double duh
-
-        Returns:
-            None
-
-        Notes:
-
-
-        """
-
-        baseUrl = "https://{0}{2}mailinglists/{1}/contacts".format(
-            self.dataCenter, mailingListId, self.qualtricsapi
-        )
-
-        headers = {
-            "x-api-token": self.apiToken,
-            "content-type": "application/json",
-            "Accept": "application/json",
-        }
-
-        data = {
-            "firstName": firstName,
-            "lastName": lastName,
-            "email": email,
-        }
-
-        response = requests.post(baseUrl, json=data, headers=headers)
-        assert response.status_code == 200, "Could not add contact to list."
-
-    def genDistribution(self, surveyId, mailingListId):
-        """ Create a survey distribution for the given mailing list
-
-        Args:
-            surveyId (str):
-                Unique id string of survey.  Get either from web interface or via
-                getSurveyId
-            mailingListId (str):
-                Unique id string of mailing lists.  Get either from we interface or via
-                getMailingListId
-
-        Returns:
-            list:
-                Dicts containing unique links ['link'] for each person in the mailing
-                list ['email']
-
-        Notes:
-
-
-        """
-
-        baseUrl = "https://{0}{1}distributions".format(
-            self.dataCenter, self.qualtricsapi
-        )
-
-        headers = {
-            "x-api-token": self.apiToken,
-            "content-type": "application/json",
-            "Accept": "application/json",
-        }
-
-        data = {
-            "surveyId": surveyId,
-            "linkType": "Individual",
-            "description": "distribution %s"
-            % datetime.now().strftime("%Y-%m-%dT%H:%M:%S%Z"),
-            "action": "CreateDistribution",
-            "mailingListId": mailingListId,
-        }
-
-        response = requests.post(baseUrl, json=data, headers=headers)
-        assert response.status_code == 200
-
-        distributionId = response.json()["result"]["id"]
-
-        baseUrl2 = "https://{0}{3}distributions/{1}/links?" "surveyId={2}".format(
-            self.dataCenter, distributionId, surveyId, self.qualtricsapi
-        )
-        response2 = requests.get(baseUrl2, headers=headers)
-
-        return response2.json()["result"]["elements"]
-
-    def exportSurvey(self, surveyId, fileFormat="csv"):
-        """ Download and extract survey results
-
-        Args:
-            surveyId (str):
-                Unique id string of survey.  Get either from web interface or via
-                getSurveyId
-            fileFormat (str):
-                Format to download (must be csv, tsv, or spss
-
-        Returns:
-            str:
-                Full path to temp directory where unzipped file will be.  Filename
-                should be the same as
-                the survey name.
-
-        Notes:
-            Adapted from
-            https://api.qualtrics.com/docs/getting-survey-responses-via-the-new-export-apis
-            "useLabels":true is hardcoded (returns label values instead of choice
-            indices. Change if you don't want that.
-
-
-        """
-        assert fileFormat in [
-            "csv",
-            "tsv",
-            "spss",
-        ], "fileFormat must be either csv, tsv, or spss"
-
-        # Setting static parameters
-        # requestCheckProgress = 0.0
-        progressStatus = "inProgress"
-        baseUrl = "https://{0}{2}surveys/{1}/export-responses/".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-        headers = {
-            "content-type": "application/json",
-            "x-api-token": self.apiToken,
-        }
-
-        # Step 1: Creating Data Export
-        downloadRequestUrl = baseUrl
-        downloadRequestPayload = '{"useLabels":true, "format":"' + fileFormat + '"}'
-        downloadRequestResponse = requests.request(
-            "POST", downloadRequestUrl, data=downloadRequestPayload, headers=headers
-        )
-        progressId = downloadRequestResponse.json()["result"]["progressId"]
-        # print(downloadRequestResponse.text)
-        print("Qualtrics download started.")
-
-        # Step 2: Checking on Data Export Progress and waiting until export is ready
-        while progressStatus != "complete" and progressStatus != "failed":
-            # print ("progressStatus=", progressStatus)
-            requestCheckUrl = baseUrl + progressId
-            requestCheckResponse = requests.request(
-                "GET", requestCheckUrl, headers=headers
-            )
-            # requestCheckProgress = \
-            #    requestCheckResponse.json()["result"]["percentComplete"]
-            # print("Download is " + str(requestCheckProgress) + " complete")
-            progressStatus = requestCheckResponse.json()["result"]["status"]
-
-        # step 2.1: Check for error
-        if progressStatus == "failed":
-            raise Exception("export failed")
-
-        print("Download complete.")
-
-        fileId = requestCheckResponse.json()["result"]["fileId"]
-
-        # Step 3: Downloading file
-        requestDownloadUrl = baseUrl + fileId + "/file"
-        requestDownload = requests.request(
-            "GET", requestDownloadUrl, headers=headers, stream=True
-        )
-
-        # Step 4: Unzipping the file
-        tmpdir = os.path.join(tempfile.gettempdir(), surveyId)
-        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall(tmpdir)
-
-        return tmpdir
-
-    def createSurvey(self, surveyname):
-        """ Create a new survey
-
-        Args:
-            surveyname (str):
-                Name of survey
-
-        Returns:
-            str:
-                Unique survey id
-
-        Notes:
-            Adapted from https://api.qualtrics.com/reference#create-survey
-            English and ProjectCategory: CORE are hard-coded.  Qualtrics will allow you
-            to create multiple surveys with the same name, but we would like to enforce
-            uniqueness so this is explicitly dissallowed by the method.
-
-        """
-
-        res = self.getSurveyNames()
-
-        assert surveyname not in res, "Survey with that name already exists."
-
-        baseUrl = "https://{0}{1}survey-definitions".format(
-            self.dataCenter, self.qualtricsapi
-        )
-        headers = {
-            "x-api-token": self.apiToken,
-            "content-type": "application/json",
-            "Accept": "application/json",
-        }
-
-        data = {"SurveyName": surveyname, "Language": "EN", "ProjectCategory": "CORE"}
-
-        response = requests.post(baseUrl, json=data, headers=headers)
-
-        try:
-            assert response.status_code == 200
-        except AssertionError:
-            print("Survey create failed.")
-            print(response.text)
-
-        surveyId = response.json()["result"]["SurveyID"]
-
-        return surveyId
 
     def genHWSurvey(self, surveyname, nprobs):
         """ Create a HW self-grade survey
@@ -1157,16 +755,8 @@ class cornellGrading:
             DeprecationWarning,
         )
 
-        surveyId = self.createSurvey(surveyname)
-
-        baseUrl = "https://{0}{2}survey-definitions/{1}/questions".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-        headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "x-api-token": self.apiToken,
-        }
+        # generate survey
+        surveyId = self.qualtrics.createSurvey(surveyname)
 
         # add netid question first
         questionDef = {
@@ -1194,8 +784,7 @@ class cornellGrading:
             "QuestionText_Unsafe": "Enter your netid",
         }
 
-        response = requests.post(baseUrl, json=questionDef, headers=headers)
-        assert response.status_code == 200, "Couldn't add netid question."
+        self.qualtrics.addSurveyQuestion(surveyId, questionDef)
 
         # add rubric questions for all problems
         for j in range(1, nprobs + 1):
@@ -1228,34 +817,13 @@ class cornellGrading:
                 "NextAnswerId": 1,
                 "QuestionText_Unsafe": "Question %d Score" % j,
             }
-            response = requests.post(baseUrl, json=questionDef, headers=headers)
-            assert response.status_code == 200, "Couldn't add problem question."
+            self.qualtrics.addSurveyQuestion(surveyId, questionDef)
 
-        # publish
-        baseUrl2 = "https://{0}{2}survey-definitions/{1}/versions".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
+        # publish and activate
+        self.qualtrics.publishSurvey(surveyId)
+        self.qualtrics.activateSurvey(surveyId)
 
-        data = {"Description": surveyname, "Published": True}
-
-        response = requests.post(baseUrl2, json=data, headers=headers)
-        assert response.status_code == 200, "Could not publish."
-
-        # activate
-        baseUrl3 = "https://{0}{2}surveys/{1}".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-        headers3 = {
-            "content-type": "application/json",
-            "x-api-token": self.apiToken,
-        }
-
-        data3 = {
-            "isActive": True,
-        }
-
-        response = requests.put(baseUrl3, json=data3, headers=headers3)
-
+        # genrate link
         link = "https://cornell.qualtrics.com/jfe/form/%s" % surveyId
 
         return link
@@ -1708,16 +1276,7 @@ class cornellGrading:
         assert isinstance(nprobs, int), "nprobs must be an int"
         assert nprobs >= 0, "nprobs must be a positive integer (or zero)"
 
-        surveyId = self.createSurvey(surveyname)
-
-        baseUrl = "https://{0}{2}survey-definitions/{1}/questions".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-        headers = {
-            "accept": "application/json",
-            "content-type": "application/json",
-            "x-api-token": self.apiToken,
-        }
+        surveyId = self.qualtrics.createSurvey(surveyname)
 
         if scoreOptions is None:
             scoreOptions = [0, 1, 2, 3]
@@ -1753,8 +1312,7 @@ class cornellGrading:
                 "NextAnswerId": 1,
                 "QuestionText_Unsafe": "HW Score",
             }
-            response = requests.post(baseUrl, json=questionDef, headers=headers)
-            assert response.status_code == 200, "Couldn't add problem question."
+            self.qualtrics.addSurveyQuestion(surveyId, questionDef)
 
         # add rubric questions for all problems
         for j in range(1, nprobs + 1):
@@ -1787,47 +1345,14 @@ class cornellGrading:
                 "NextAnswerId": 1,
                 "QuestionText_Unsafe": desc,
             }
-            response = requests.post(baseUrl, json=questionDef, headers=headers)
-            assert response.status_code == 200, "Couldn't add problem question."
+            self.qualtrics.addSurveyQuestion(surveyId, questionDef)
 
-        # publish
-        baseUrl2 = "https://{0}{2}survey-definitions/{1}/versions".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
+        # publish and activate
+        self.qualtrics.publishSurvey(surveyId)
+        self.qualtrics.activateSurvey(surveyId)
 
-        data = {"Description": surveyname, "Published": True}
-
-        response = requests.post(baseUrl2, json=data, headers=headers)
-        assert response.status_code == 200, "Could not publish."
-
-        # activate
-        baseUrl3 = "https://{0}{2}surveys/{1}".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-        headers3 = {
-            "content-type": "application/json",
-            "x-api-token": self.apiToken,
-        }
-
-        data3 = {
-            "isActive": True,
-        }
-
-        response = requests.put(baseUrl3, json=data3, headers=headers3)
-        assert response.status_code == 200, "Could not activate."
-
-        # let's set this to private.  first need to get current options as a template
-        baseUrl4 = "https://{0}{2}survey-definitions/{1}/options".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-        tmp = requests.get(baseUrl4, headers=headers3)
-        assert response.status_code == 200, "Could not query options."
-
-        data4 = tmp.json()["result"]
-        data4["SurveyProtection"] = "ByInvitation"
-
-        response = requests.put(baseUrl4, json=data4, headers=headers3)
-        assert response.status_code == 200, "Could not update options."
+        # make private
+        self.qualtrics.makeSurveyPrivate(surveyId)
 
         return surveyId
 
@@ -1889,10 +1414,10 @@ class cornellGrading:
         )
 
         if sharewith:
-            self.shareSurvey(surveyId, sharewith)
+            self.qualtrics.shareSurvey(surveyId, sharewith)
 
-        mailingListId = self.getMailingListId(self.coursename)
-        dist = self.genDistribution(surveyId, mailingListId)
+        mailingListId = self.qualtrics.getMailingListId(self.coursename)
+        dist = self.qualtrics.genDistribution(surveyId, mailingListId)
 
         distnetids = np.array([d["email"].split("@")[0] for d in dist])
 
@@ -1967,74 +1492,6 @@ class cornellGrading:
                 unlock_at=duedate + timedelta(days=selfGradeReleasedDelta),
             )
 
-    def shareSurvey(self, surveyId, sharewith):
-        """ Share survey with another qualtrics user
-        Args:
-            surveyId (str):
-                Unique survey id string
-            sharewith (str):
-                Qualtrics id to share survey with
-        Returns:
-            None
-
-        Notes:
-        """
-
-        headers = {
-            "x-api-token": self.apiToken,
-            "content-type": "application/json",
-            "Accept": "application/json",
-        }
-
-        baseUrl = "https://{0}{2}surveys/{1}/permissions/" "collaborations".format(
-            self.dataCenter, surveyId, self.qualtricsapi
-        )
-
-        data = {
-            "userId": sharewith,
-            "permissions": {
-                "surveyDefinitionManipulation": {
-                    "copySurveyQuestions": True,
-                    "editSurveyFlow": True,
-                    "useBlocks": True,
-                    "useSkipLogic": True,
-                    "useConjoint": True,
-                    "useTriggers": True,
-                    "useQuotas": True,
-                    "setSurveyOptions": True,
-                    "editQuestions": True,
-                    "deleteSurveyQuestions": True,
-                    "useTableOfContents": True,
-                    "useAdvancedQuotas": True,
-                },
-                "surveyManagement": {
-                    "editSurveys": True,
-                    "activateSurveys": True,
-                    "deactivateSurveys": True,
-                    "copySurveys": True,
-                    "distributeSurveys": True,
-                    "deleteSurveys": True,
-                    "translateSurveys": True,
-                },
-                "response": {
-                    "editSurveyResponses": True,
-                    "createResponseSets": True,
-                    "viewResponseId": True,
-                    "useCrossTabs": True,
-                    "useScreenouts": True,
-                },
-                "result": {
-                    "downloadSurveyResults": True,
-                    "viewSurveyResults": True,
-                    "filterSurveyResults": True,
-                    "viewPersonalData": True,
-                },
-            },
-        }
-
-        tmp = requests.post(baseUrl, headers=headers, json=data)
-        assert tmp.status_code == 200, "Could not share survey."
-
     def selfGradingImport(
         self, assignmentNum, ecscore=3, checkLate=True, latePenalty=0.25, maxDaysLate=3
     ):
@@ -2071,8 +1528,8 @@ class cornellGrading:
 
         # grab the survey
         surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
-        surveyId = self.getSurveyId(surveyname)
-        tmpdir = self.exportSurvey(surveyId)
+        surveyId = self.qualtrics.getSurveyId(surveyname)
+        tmpdir = self.qualtrics.exportSurvey(surveyId)
 
         if ":" in surveyname:
             surveyname = surveyname.replace(":", "_")

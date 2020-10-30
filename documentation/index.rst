@@ -10,7 +10,9 @@ Welcome to cornellGrading's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   setup
    usage
+   qualtrics
    cornellGrading
 
 Indices and tables

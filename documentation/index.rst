@@ -12,6 +12,7 @@ Welcome to cornellGrading's documentation!
 
    setup
    usage
+   examples
    qualtrics
    cornellGrading
 

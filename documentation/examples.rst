@@ -153,4 +153,59 @@ I decided (for reasons that defy explanation), to give a personalized, self-admi
         from pytz import timezone
         subtime.astimezone(timezone('US/Eastern'))
 
+#. Here's some more stuff you can do in terms of post-processing.  In this case, I have set up all of the quizzes and the students have completed their exams.  I saved all of the student net ids (in a column labeled ``netid``), assigned questions (for grading purposes), along with the quiz ids (in a column labeled ``quizid``) in a CSV file called ``assigned_questions.csv``.  Now I can use that in order to access all of the individual start times, get all the end times and update the CSV file with this new info.
+
+    .. code-block:: python
+
+        import pandas
+
+        dat = pandas.read_csv(os.path.join(prelimpath,'assigned_questions.csv'))
+
+        # loop through the quiz ids and get the start times
+        starts = []
+        for qid in dat['quizid'].values:
+            print(qid)
+            q = c.course.get_quiz(qid)
+            subs = q.get_submissions()
+            try:
+                starts.append(subs[0].started_at_date)
+            except IndexError:
+                starts.append(None)
+        starts = np.array(starts)
+
+        # now get the exam submission times
+        # change this to the name of your particular Exam assignment:
+        prelim = c.getAssignment('Prelim')
+        tmp = prelim.get_submissions()
+        subnetids = []
+        subtimes = []
+        for t in tmp:
+            if t.user_id in c.ids:
+                subnetids.append(c.netids[c.ids == t.user_id][0])
+                if t.submitted_at:
+                    subtimes.append(datetime.strptime(
+                        t.submitted_at, """%Y-%m-%dT%H:%M:%S%z"""))
+                else:
+                    subtimes.append(np.nan)
+        subnetids = np.array(subnetids)
+        subtimes = np.array(subtimes)
+
+        # now calculate each student's test duration
+        testtimes = []
+        subtimes2 = []
+        for j in range(len(dat)):
+            try:
+                testtimes.append((subtimes[subnetids == dat['netid'].values[j]][0] - starts[j]).seconds/3600)
+                subtimes2.append(subtimes[subnetids == dat['netid'].values[j]][0])
+            except TypeError:
+                testtimes.append(np.nan)
+                subtimes2.append(np.nan)
+        testtimes = np.array(testtimes)
+        subtimes = np.array(subtimes2)
+
+        # add info to CSV and write back to disk
+        dat = dat.assign(Start_Time=starts)
+        dat = dat.assign(End_Time=subtimes)
+        dat = dat.assign(Duration=testtimes)
+        dat.to_csv(os.path.join(prelimpath,'assigned_questions.csv'),index=False)
 

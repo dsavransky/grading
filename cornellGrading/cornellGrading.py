@@ -24,17 +24,17 @@ except ImportError:
 
 
 class cornellGrading:
-    """ Class for io methods for Canvas and Qualtrics
+    """Class for io methods for Canvas and Qualtrics
 
-        Args:
-            canvasurl (str):
-                Base url for canvas API calls.
-                Defaults to https://canvas.cornell.edu
+    Args:
+        canvasurl (str):
+            Base url for canvas API calls.
+            Defaults to https://canvas.cornell.edu
 
     """
 
     def __init__(self, canvasurl="https://canvas.cornell.edu", canvas_token_file=None):
-        """ Ask for token, store it if you can connect, and
+        """Ask for token, store it if you can connect, and
         save resulting canvas object
 
         Args:
@@ -81,7 +81,7 @@ class cornellGrading:
         self.canvas = canvas
 
     def getCourse(self, coursenum):
-        """ Access course and load all student names, ids and netids
+        """Access course and load all student names, ids and netids
 
         Args:
             coursenum (int):
@@ -129,7 +129,7 @@ class cornellGrading:
         self.coursename = course.name
 
     def localizeTime(self, duedate, duetime="17:00:00", tz="US/Eastern"):
-        """ Helper method for setting the proper UTC time while being
+        """Helper method for setting the proper UTC time while being
         DST-aware
 
         Args:
@@ -153,7 +153,7 @@ class cornellGrading:
         return utc_dt
 
     def getAssignment(self, assignmentName):
-        """ Locate assignment by name
+        """Locate assignment by name
 
         Args:
             assignmentName (str):
@@ -178,7 +178,7 @@ class cornellGrading:
         return hw
 
     def getAssignmentGroup(self, groupName):
-        """ Locate assignment group by name
+        """Locate assignment group by name
 
         Args:
             groupName (str):
@@ -203,7 +203,7 @@ class cornellGrading:
         return group
 
     def createAssignmentGroup(self, groupName):
-        """ Create assignment group by name
+        """Create assignment group by name
 
         Args:
             assignmentGroup (str):
@@ -225,7 +225,7 @@ class cornellGrading:
         return group
 
     def getFolder(self, folderName):
-        """ Locate folder by name
+        """Locate folder by name
 
         Args:
              (str):
@@ -250,7 +250,7 @@ class cornellGrading:
         return folder
 
     def createFolder(self, folderName, parentFolder="course files", hidden=False):
-        """ Create folder by name
+        """Create folder by name
 
         Args:
             folderName (str):
@@ -312,7 +312,7 @@ class cornellGrading:
         due_at=None,
         unlock_at=None,
     ):
-        """ Create an assignment
+        """Create an assignment
 
         Args:
             name (str):
@@ -380,7 +380,7 @@ class cornellGrading:
         return res
 
     def createPage(self, title, body, editing_roles="teachers", published=False):
-        """ Create an assignment
+        """Create an assignment
 
         Args:
             title (str):
@@ -426,7 +426,7 @@ class cornellGrading:
         published=False,
         insertPDF=False,
     ):
-        """ Generate a new canvas page out of a LaTex source file
+        """Generate a new canvas page out of a LaTex source file
 
         Args:
             fname (str):
@@ -492,7 +492,7 @@ class cornellGrading:
         return res
 
     def matlabImport(self, assignmentNum, gradercsv, duedate):
-        """ MATLAB grader grade import. Create the assignment in the MATLAB
+        """MATLAB grader grade import. Create the assignment in the MATLAB
         group and upload grades to it.
 
         Args:
@@ -569,7 +569,7 @@ class cornellGrading:
         self.uploadScores(ass, netids, scores)
 
     def uploadScores(self, ass, netids, scores):
-        """ Upload scores to Canvas
+        """Upload scores to Canvas
 
         Args:
             ass (canvasapi.assignment.Assignment):
@@ -622,7 +622,7 @@ class cornellGrading:
         qualtricsapi=".qualtrics.com/API/v3/",
         qualtrics_token_file=None,
     ):
-        """ Save/Load qualtrics api token and verify connection
+        """Save/Load qualtrics api token and verify connection
 
         Args:
             dataCenter (str):
@@ -652,7 +652,7 @@ class cornellGrading:
         self.qualtrics = cornellQualtrics()
 
     def genCourseMailingList(self):
-        """ Generates a qualtrics mailing list with all the netids from the course
+        """Generates a qualtrics mailing list with all the netids from the course
 
         Args:
            None
@@ -679,7 +679,7 @@ class cornellGrading:
             self.qualtrics.addListContact(mailingListId, fN, lN, em)
 
     def updateCourseMailingList(self):
-        """ Compares course qualtrics mailing list to current roster and updates
+        """Compares course qualtrics mailing list to current roster and updates
         as needed
 
         Args:
@@ -723,7 +723,7 @@ class cornellGrading:
                 )
 
     def genHWSurvey(self, surveyname, nprobs):
-        """ Create a HW self-grade survey
+        """Create a HW self-grade survey
 
         Args:
             surveyname (str):
@@ -829,7 +829,7 @@ class cornellGrading:
         return link
 
     def setupHW(self, assignmentNum, duedate, nprobs):
-        """ Create qualtrics self-grading survey and Canvas column for
+        """Create qualtrics self-grading survey and Canvas column for
         a homework.
 
         Args:
@@ -896,7 +896,7 @@ class cornellGrading:
         injectText=False,
         allowed_extensions=None,
     ):
-        """ Create a Canvas assignment, set the duedae, upload an associated
+        """Create a Canvas assignment, set the duedae, upload an associated
         PDF and link in the assignment description, set the number of points, and
         (optionally), set an unlock time and inject the assignment text into the
         description along with the PDF link.
@@ -987,7 +987,7 @@ class cornellGrading:
         return hw
 
     def latex2html(self, fname, folder="Images", hidden=True):
-        """ Convert LaTex source into Canvas-compatible html
+        """Convert LaTex source into Canvas-compatible html
         and upload any required figures along the way
 
         Args:
@@ -1250,7 +1250,7 @@ class cornellGrading:
         return out
 
     def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None, ecprobs=[]):
-        """ Create a HW self-grade survey and make private
+        """Create a HW self-grade survey and make private
 
         Args:
             surveyname (str):
@@ -1369,7 +1369,7 @@ class cornellGrading:
         selfGradeDueDelta=7,
         selfGradeReleasedDelta=3,
     ):
-        """ Create qualtrics self-grading survey, individualized links distribution,
+        """Create qualtrics self-grading survey, individualized links distribution,
         a Canvas post for where the solutions will go, and injects links into assignment
         columns.
 
@@ -1493,9 +1493,15 @@ class cornellGrading:
             )
 
     def selfGradingImport(
-        self, assignmentNum, ecscore=3, checkLate=True, latePenalty=0.25, maxDaysLate=3
+        self,
+        assignmentNum,
+        ecscore=3,
+        checkLate=True,
+        latePenalty=0.25,
+        maxDaysLate=3,
+        noUpload=False,
     ):
-        """ Qualtrics self-grading survey import.
+        """Qualtrics self-grading survey import.
 
         Args:
             assignmentNum (int):
@@ -1511,8 +1517,14 @@ class cornellGrading:
                 Must be in (0,1).
             maxDaysLate (float):
                 After this number of days past deadline, HW gets zero. Defaults to 3.
+            noUpload (bool):
+                Don't upload if True (defaults False)
         Returns:
-            None
+            tuple:
+                netids (str array)
+                    Student netids
+                scores (float array)
+                    Student scores
 
         Notes:
             To whitelist late submissions, in Canvas gradebook, click on the submission,
@@ -1628,10 +1640,13 @@ class cornellGrading:
                             scores[j] = 0
             scores[scores < 0] = 0
 
-        self.uploadScores(hw, qnetids, scores)
+        if not (noUpload):
+            self.uploadScores(hw, qnetids, scores)
+
+        return qnetids, scores
 
     def getGroups(self, outfile=None):
-        """ Create a csv file of group membership
+        """Create a csv file of group membership
 
         Args:
             outfile (str):

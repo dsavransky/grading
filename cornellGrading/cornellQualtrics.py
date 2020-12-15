@@ -9,13 +9,13 @@ from datetime import datetime
 
 
 class cornellQualtrics:
-    """ Class for io methods for Qualtrics
+    """Class for io methods for Qualtrics
 
-        Args:
-            dataCenter (str):
-                Root of datacenter url.  Defaults to Cornell value.
-            qualtricsapi (str):
-                API url.  Defaults to v3 (current).
+    Args:
+        dataCenter (str):
+            Root of datacenter url.  Defaults to Cornell value.
+        qualtricsapi (str):
+            API url.  Defaults to v3 (current).
 
     """
 
@@ -25,7 +25,7 @@ class cornellQualtrics:
         qualtricsapi=".qualtrics.com/API/v3/",
         qualtrics_token_file=None,
     ):
-        """ Save/Load qualtrics api token and verify connection
+        """Save/Load qualtrics api token and verify connection
 
         Args:
             dataCenter (str):
@@ -58,7 +58,7 @@ class cornellQualtrics:
         apiToken = keyring.get_password("qualtrics_token", "cornell.ca1")
         if apiToken is None:
             if qualtrics_token_file is None:
-                apiToken = getpass.getpass("Enter canvas token:\n")
+                apiToken = getpass.getpass("Enter qualtrics token:\n")
             else:
                 with open(qualtrics_token_file, "r") as f:
                     tmp = f.read()
@@ -80,7 +80,7 @@ class cornellQualtrics:
             print("Connected to Qualtrics.")
 
     def setupHeaders(self):
-        """ Generate standard headers
+        """Generate standard headers
 
         Args:
             None
@@ -105,7 +105,7 @@ class cornellQualtrics:
         }
 
     def listSurveys(self):
-        """ Grab all available Qualtrics surveys
+        """Grab all available Qualtrics surveys
 
         Args:
             None
@@ -122,7 +122,7 @@ class cornellQualtrics:
         return response
 
     def getSurveyNames(self):
-        """ Return a list of all current survey names.
+        """Return a list of all current survey names.
 
         Args:
             None
@@ -140,7 +140,7 @@ class cornellQualtrics:
         return surveynames
 
     def getSurveyId(self, surveyname):
-        """ Find qualtrics survey id by name.  Matching is exact.
+        """Find qualtrics survey id by name.  Matching is exact.
 
         Args:
             surveyname (str):
@@ -163,7 +163,7 @@ class cornellQualtrics:
         return surveyid
 
     def getSurveyQuestions(self, surveyId):
-        """ Grab all available survey questions
+        """Grab all available survey questions
 
         Args:
             surveyId (str):
@@ -183,7 +183,7 @@ class cornellQualtrics:
         return response
 
     def getMailingLists(self):
-        """ Grab all available Qualtrics mailing lists
+        """Grab all available Qualtrics mailing lists
 
         Args:
             None
@@ -195,14 +195,15 @@ class cornellQualtrics:
         """
 
         baseUrl = "https://{0}{1}mailinglists".format(
-            self.dataCenter, self.qualtricsapi,
+            self.dataCenter,
+            self.qualtricsapi,
         )
         response = requests.get(baseUrl, headers=self.headers_tokenOnly)
 
         return response
 
     def getMailingListId(self, listName):
-        """ Find qualtrics mailinglist id by name.  Matching is exact.
+        """Find qualtrics mailinglist id by name.  Matching is exact.
 
         Args:
             listName (str):
@@ -225,7 +226,7 @@ class cornellQualtrics:
         return mailinglistid
 
     def genMailingList(self, listName):
-        """ Generate mailing list
+        """Generate mailing list
 
         Args:
             listName (str):
@@ -262,7 +263,7 @@ class cornellQualtrics:
         return response.json()["result"]["id"]
 
     def getListContacts(self, mailingListId):
-        """ Get all contacts in a mailing list
+        """Get all contacts in a mailing list
 
         Args:
             mailingListId (str):
@@ -279,7 +280,9 @@ class cornellQualtrics:
         """
         response = requests.get(
             "https://{0}{2}mailinglists/{1}/contacts".format(
-                self.dataCenter, mailingListId, self.qualtricsapi,
+                self.dataCenter,
+                mailingListId,
+                self.qualtricsapi,
             ),
             headers=self.headers_tokenOnly,
         )
@@ -291,7 +294,7 @@ class cornellQualtrics:
         return response
 
     def addListContact(self, mailingListId, firstName, lastName, email):
-        """ Add a contact to a mailing list
+        """Add a contact to a mailing list
 
         Args:
             mailingListId (str):
@@ -326,7 +329,7 @@ class cornellQualtrics:
         assert response.status_code == 200, "Could not add contact to list."
 
     def deleteListContact(self, mailingListId, contactId):
-        """ Add a contact to a mailing list
+        """Add a contact to a mailing list
 
         Args:
             mailingListId (str):
@@ -345,14 +348,17 @@ class cornellQualtrics:
 
         response = requests.delete(
             "https://{0}{3}mailinglists/{1}/contacts/{2}".format(
-                self.dataCenter, mailingListId, contactId, self.qualtricsapi,
+                self.dataCenter,
+                mailingListId,
+                contactId,
+                self.qualtricsapi,
             ),
             headers=self.headers_post,
         )
         assert response.status_code == 200, "Could not remove contact from list."
 
     def genDistribution(self, surveyId, mailingListId):
-        """ Create a survey distribution for the given mailing list
+        """Create a survey distribution for the given mailing list
 
         Args:
             surveyId (str):
@@ -398,7 +404,7 @@ class cornellQualtrics:
         return response2.json()["result"]["elements"]
 
     def exportSurvey(self, surveyId, fileFormat="csv"):
-        """ Download and extract survey results
+        """Download and extract survey results
 
         Args:
             surveyId (str):
@@ -480,7 +486,7 @@ class cornellQualtrics:
         return tmpdir
 
     def createSurvey(self, surveyname):
-        """ Create a new survey
+        """Create a new survey
 
         Args:
             surveyname (str):
@@ -521,7 +527,7 @@ class cornellQualtrics:
         return surveyId
 
     def shareSurvey(self, surveyId, sharewith):
-        """ Share survey with another qualtrics user
+        """Share survey with another qualtrics user
         Args:
             surveyId (str):
                 Unique survey id string
@@ -583,7 +589,7 @@ class cornellQualtrics:
         assert tmp.status_code == 200, "Could not share survey."
 
     def getSurvey(self, surveyId):
-        """ Get a Survey
+        """Get a Survey
 
         Args:
             surveyId (str):
@@ -607,7 +613,7 @@ class cornellQualtrics:
         return response.json()["result"]
 
     def publishSurvey(self, surveyId):
-        """ Publish a Survey
+        """Publish a Survey
 
         Args:
             surveyId (str):
@@ -630,7 +636,7 @@ class cornellQualtrics:
         assert response.status_code == 200, "Could not publish."
 
     def activateSurvey(self, surveyId):
-        """ Activate a Survey
+        """Activate a Survey
 
         Args:
             surveyId (str):
@@ -652,7 +658,7 @@ class cornellQualtrics:
         assert response.status_code == 200, "Could not activate."
 
     def makeSurveyPrivate(self, surveyId):
-        """ Make a Survey private
+        """Make a Survey private
 
         Args:
             surveyId (str):
@@ -676,7 +682,7 @@ class cornellQualtrics:
         assert response.status_code == 200, "Could not update options."
 
     def addSurveyQuestion(self, surveyId, questionDef):
-        """ Add question to existing Survey
+        """Add question to existing Survey
 
         Args:
             surveyId (str):
@@ -699,7 +705,7 @@ class cornellQualtrics:
         return response.json()["result"]["QuestionID"]
 
     def updateSurveyQuestion(self, surveyId, qId, questionDef):
-        """ Add question to existing Survey
+        """Add question to existing Survey
 
         Args:
             surveyId (str):
@@ -721,7 +727,7 @@ class cornellQualtrics:
         assert response.status_code == 200, "Couldn't update question."
 
     def getSurveyQuotas(self, surveyId):
-        """ Get all quotas for a survey
+        """Get all quotas for a survey
 
         Args:
             surveyId (str):
@@ -744,7 +750,7 @@ class cornellQualtrics:
         return response.json()["result"]
 
     def getSurveyQuotaGroups(self, surveyId):
-        """ Get a Survey's quota groups
+        """Get a Survey's quota groups
 
         Args:
             surveyId (str):
@@ -767,7 +773,7 @@ class cornellQualtrics:
         return response.json()["result"]["elements"][0]["Quotas"]
 
     def addSurveyQuotaGroup(self, surveyId, quotaGroupName):
-        """ Add quota to existing Survey
+        """Add quota to existing Survey
 
         Args:
             surveyId (str):
@@ -792,7 +798,7 @@ class cornellQualtrics:
         return response.json()["result"]["QuotaGroupID"]
 
     def addSurveyQuota(self, surveyId, quotaDef):
-        """ Add quota to existing Survey
+        """Add quota to existing Survey
 
         Args:
             surveyId (str):

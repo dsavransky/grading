@@ -61,15 +61,15 @@ On the qualtrics site:
 #. Click the 'Generate Token' button under API
 #. This page also lists all other IDs you need to know
 
-You will need to enter this token the first time you run :py:func:`~cornellGrading.cornellGrading.setupQualtrics`
+You will need to enter this token the first time you run :py:meth:`~.cornellGrading.setupQualtrics`
 
 .. note::
 
-   The token is stored in your system's keychain as ``qualtrics_token`` and will be automatically loaded on all subsequent :py:meth:`cornellGrading.cornellGrading.setupQualtrics` calls.  If you need to change the local token, you must manually delete it from the keychain. The token is entered as a secure password, and so you will not see the cursor move as you enter it. The token will only be saved if the connection to Canvas is successful.
+   The token is stored in your system's keychain as ``qualtrics_token`` and will be automatically loaded on all subsequent :py:meth:`~.cornellGrading.setupQualtrics` calls.  If you need to change the local token, you must manually delete it from the keychain. The token is entered as a secure password, and so you will not see the cursor move as you enter it. The token will only be saved if the connection to Canvas is successful.
 
 .. warning::
 
-    Windows users working with a standard shell will likely `be unable to copy/paste this token into the command prompt.  Windows users should use the ``qualtrics_token_file` input when running :py:func:`~cornellGrading.cornellGrading.setupQualtrics` for the first time, or just retype it into the prompt.
+    Windows users working with a standard shell will likely `be unable to copy/paste this token into the command prompt.  Windows users should use the ``qualtrics_token_file` input when running :py:meth:`~.cornellGrading.setupQualtrics` for the first time, or just retype it into the prompt.
 
 
 Qualtrics De-Anonymization

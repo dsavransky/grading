@@ -403,7 +403,7 @@ class cornellQualtrics:
 
         return response2.json()["result"]["elements"]
 
-    def exportSurvey(self, surveyId, fileFormat="csv"):
+    def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true"):
         """Download and extract survey results
 
         Args:
@@ -442,7 +442,7 @@ class cornellQualtrics:
 
         # Step 1: Creating Data Export
         downloadRequestUrl = baseUrl
-        downloadRequestPayload = '{"useLabels":true, "format":"' + fileFormat + '"}'
+        downloadRequestPayload = '{{"useLabels":{0}, "format":"{1}"}}'.format(useLabels,fileFormat)
         downloadRequestResponse = requests.request(
             "POST",
             downloadRequestUrl,

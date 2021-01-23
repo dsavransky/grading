@@ -148,7 +148,7 @@ This will create a  'Homework Self-Grading' assignment group (if it does not alr
 Grab Self-Grading Results and Upload to Canvas
 ------------------------------------------------
 
-Finally, once students have completed their self-assessment via Qualtrics, we need to move their scores into the Canvas gradebook.  This is done via the :py:meth:`~cornellGrading.cornellGrading.selfGradingImport` method.  Again, this assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number, and also that you have assigned a point value to the assignment in Canvas (if you're using the single-question survey variant, and not checking for late submissions, the latter is not required).
+Finally, once students have completed their self-assessment via Qualtrics, we need to move their scores into the Canvas gradebook.  This is done via the :py:meth:`~.cornellGrading.selfGradingImport` method.  Again, this assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number, and also that you have assigned a point value to the assignment in Canvas (if you're using the single-question survey variant, and not checking for late submissions, the latter is not required).
 
 In python:
 
@@ -171,9 +171,9 @@ If your assignment has extra credit problems, you can identify these in your sur
 Create Canvas Page from LaTeX
 ---------------------------------
 
-The :py:meth:`cornellGrading.cornellGrading.latex2page` method allows you to convert LaTeX source into a Canvas page.
+The :py:meth:`~.cornellGrading.latex2page` method allows you to convert LaTeX source into a Canvas page.
 
-Assuming you have instantiated a `cornellGrading` object as `c`, as above, you can run:
+Assuming you have instantiated a ``cornellGrading`` object as ``c``, as above, you can run:
 
 .. code-block:: python
 

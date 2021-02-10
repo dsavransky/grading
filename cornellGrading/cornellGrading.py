@@ -1108,6 +1108,9 @@ class cornellGrading:
                 self.spanDefs = {}
                 self.inOL = False  # toggle for inside ordered list
                 self.inNestedOL = False  # toggle for inside nested ordered list
+                self.labelp = re.compile(r"\\label{(\S*)}")
+                self.eqp = re.compile(r"https://latex.codecogs.com/png.latex\?(.*)")
+                self.eqlabels = {}
 
             def handle_starttag(self, tag, attrs):
                 if tag == "body":
@@ -1121,6 +1124,16 @@ class cornellGrading:
 
                 if tag == "img":
                     imsrc = dict(attrs)["src"]
+
+                    # let's look for label directives in equations
+                    tmp = self.eqp.match(imsrc)
+                    if tmp:
+                        tmp2 = self.labelp.search(dict(attrs)["alt"])
+                        if tmp2:
+                            self.eqlabels[
+                                urllib.parse.quote(tmp.groups()[0])
+                            ] = tmp2.groups()[0]
+
                     # anyting that's not a link must be an actual image
                     if not (imsrc.startswith("http")):
                         # if you don't see it in the source directory, it's probably a
@@ -1208,11 +1221,12 @@ class cornellGrading:
 
             # end MyHTMLParser
 
-        imstyles = r'img style="vertical-align:middle"'
-        imstyler = r'img class="equation_image"'
-
-        srcstrs = r'src="https://latex.codecogs.com/png.latex\?'
-        srcstrr = r'src="https://canvas.cornell.edu/equation_images/'
+        # global replacements
+        repdict = {
+            r'class="math display"': r'style = "display: block; text-align: center; margin: 0.5rem auto;"',
+            r'img style="vertical-align:middle"': r'img class="equation_image"',
+            r'src="https://latex.codecogs.com/png.latex\?': r'src="https://canvas.cornell.edu/equation_images/',
+        }
 
         p = re.compile(r'src="https://latex.codecogs.com/png.latex\?(.*?)"')
 
@@ -1225,7 +1239,9 @@ class cornellGrading:
             _ = parser.feed(line)
             if parser.inBody:
                 tmp = p.sub(convlatex, line)
-                tmp = re.sub(srcstrs, srcstrr, re.sub(imstyles, imstyler, tmp))
+                for k, v in repdict.items():
+                    tmp = re.sub(k, v, tmp)
+
                 while parser.imagesUploaded:
                     imup = parser.imagesUploaded.pop()
                     figcap = parser.figcaptions.pop()
@@ -1247,6 +1263,16 @@ class cornellGrading:
                 out.append(tmp)
 
         out = out[1:]
+
+        # handle any equation labels
+        if parser.eqlabels:
+            for j, o in enumerate(out):
+                for cl, val in parser.eqlabels.items():
+                    if cl in o:
+                        out[j] = o.replace(
+                            '{}"'.format(cl), '{}" id="{}"'.format(cl, val)
+                        )
+
         return out
 
     def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None, ecprobs=[]):

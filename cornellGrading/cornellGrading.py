@@ -1706,12 +1706,13 @@ class cornellGrading:
         )
         out.to_csv(outfile, index=False)
 
-
-    def dir2page(self, 
-        path, 
+    def dir2page(
+        self,
+        path,
         title,
-        extensions=None, 
-        folder="Lecture Notes", 
+        extensions=None,
+        prefix="",
+        folder="Lecture Notes",
         hidden=False,
         editing_roles="teachers",
         published=False,
@@ -1725,6 +1726,8 @@ class cornellGrading:
                 Page title
             extensions (list):
                 List of strings for extensions to upload
+            prefix (str):
+                Any HTML text to put before the links
             folder (str):
                 Canvas folder to upload the files or other supporting material to.
                 Defaults to Images.  If the folder does not exist, it will be created.
@@ -1747,8 +1750,8 @@ class cornellGrading:
 
         """
 
-        # get files from path with extensions 
-        files =  os.listdir(path)
+        # get files from path with extensions
+        files = os.listdir(path)
         if extensions:
             files = [f for f in files if any(f.endswith(ext) for ext in extensions)]
 
@@ -1756,10 +1759,10 @@ class cornellGrading:
         upfolder = self.createFolder(folder, hidden=hidden)
 
         # upload and link to files
-        body = ""
+        body = prefix
         for fname in files:
 
-            res = upfolder.upload(os.path.join(path,fname))
+            res = upfolder.upload(os.path.join(path, fname))
             assert res[0], f"File {fname} upload failed."
             print(f"Uploaded {fname}.")
 
@@ -1779,7 +1782,65 @@ class cornellGrading:
         )
         print(f"Created page '{title}'.")
 
-
         return res
 
-      
+    def listModules(self):
+        """Returns a list of module names"""
+
+        mdls = self.course.get_modules()
+
+        modules = []
+        for md in mdls:
+            modules.append(md.name)
+
+        return modules
+
+    def getModule(self, moduleName):
+        """Locate module by name
+
+        Args:
+            moduleName (str):
+                Name of module to return.  Must be exact match.
+                To see all assignments do:
+                >> for a in c.listModules(): print(a)
+        Returns:
+            canvasapi.module.Module:
+                The Module object
+
+        """
+
+        tmp = self.course.get_modules()
+        md = None
+        for t in tmp:
+            if t.name == moduleName:
+                md = t
+                break
+
+        assert md is not None, f"Could not find module {moduleName}."
+
+        return md
+
+    def add2module(self, module, title, object):
+        """Adds an object to a module
+
+        Args:
+            module (canvasapi.Module):
+                The module to add the item to
+            title (str):
+                Title of the module item
+            object (canvasapi.CanvasObject):
+                The object to be added to the module. Tested with Page and Assignment so far. Type should be one of [File, Page, Discussion, Assignment, Quiz, SubHeader, ExternalUrl, ExternalTool].
+        """
+
+        obj_type = type(object).__name__
+
+        item = {
+            "title": title,
+            "type": obj_type,
+        }
+        if obj_type == "Page":
+            item["page_url"] = object.url
+        else:
+            item["content_id"] = str(object.id)
+
+        module.create_module_item(item)

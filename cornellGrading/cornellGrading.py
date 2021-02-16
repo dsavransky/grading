@@ -1779,7 +1779,69 @@ class cornellGrading:
         )
         print(f"Created page '{title}'.")
 
-
         return res
 
-      
+
+    def listModules(self):
+        """Returns a list of module names
+        """
+
+        mdls = self.course.get_modules()
+
+        modules = []
+        for md in mdls:
+            modules.append(md.name)
+        
+        return modules
+
+
+    def getModule(self, moduleName):
+        """Locate module by name
+
+        Args:
+            moduleName (str):
+                Name of module to return.  Must be exact match.
+                To see all assignments do:
+                >> for a in c.listModules(): print(a)
+        Returns:
+            canvasapi.module.Module:
+                The Module object
+
+        """
+
+        tmp = self.course.get_modules()
+        md = None
+        for t in tmp:
+            if t.name == moduleName:
+                md = t
+                break
+
+        assert md is not None, f"Could not find module {moduleName}."
+
+        return md
+
+
+    def add2module(self, module, title, type, object):
+        """Adds an object to a module
+
+        Args:
+            module (canvasapi.Module): 
+                The module to add the item to
+            title (str): 
+                Title of the module item
+            type (str): 
+                Type of object to be added [File, Page, Discussion, Assignment, Quiz, SubHeader, ExternalUrl, ExternalTool]
+            object (canvasapi.CanvasObject): 
+                The object to be added to the module. Tested with Page and Assignment so far
+        """
+
+        item = {
+            'title': title,
+            'type': type,
+        }
+        if type == 'Page':
+            item['page_url'] = object.url
+        else:
+            item['content_id'] = str(object.id)
+            
+        module.create_module_item(item)

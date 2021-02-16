@@ -1785,7 +1785,15 @@ class cornellGrading:
         return res
 
     def listModules(self):
-        """Returns a list of module names"""
+        """List all modules in course
+
+        Args:
+            None
+        Returns:
+            list:
+                list of strings containing module names
+
+        """
 
         mdls = self.course.get_modules()
 

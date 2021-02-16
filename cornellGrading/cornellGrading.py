@@ -1821,7 +1821,7 @@ class cornellGrading:
         return md
 
 
-    def add2module(self, module, title, type, object):
+    def add2module(self, module, title, object):
         """Adds an object to a module
 
         Args:
@@ -1829,17 +1829,17 @@ class cornellGrading:
                 The module to add the item to
             title (str): 
                 Title of the module item
-            type (str): 
-                Type of object to be added [File, Page, Discussion, Assignment, Quiz, SubHeader, ExternalUrl, ExternalTool]
             object (canvasapi.CanvasObject): 
-                The object to be added to the module. Tested with Page and Assignment so far
+                The object to be added to the module. Tested with Page and Assignment so far. Type should be one of [File, Page, Discussion, Assignment, Quiz, SubHeader, ExternalUrl, ExternalTool].
         """
+
+        obj_type = type(object).__name__
 
         item = {
             'title': title,
-            'type': type,
+            'type': obj_type,
         }
-        if type == 'Page':
+        if obj_type == 'Page':
             item['page_url'] = object.url
         else:
             item['content_id'] = str(object.id)

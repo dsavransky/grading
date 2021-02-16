@@ -1705,3 +1705,81 @@ class cornellGrading:
             {"Pre-assign Room Name": grpname, "Email Address": grpmember}
         )
         out.to_csv(outfile, index=False)
+
+
+    def dir2page(self, 
+        path, 
+        title,
+        extensions=None, 
+        folder="Lecture Notes", 
+        hidden=False,
+        editing_roles="teachers",
+        published=False,
+    ):
+        """Generate new canvas page from a local dir with choice of file extensions
+
+        Args:
+            path (str):
+                Full path of the directory to process
+            title (str):
+                Page title
+            extensions (list):
+                List of strings for extensions to upload
+            folder (str):
+                Canvas folder to upload the files or other supporting material to.
+                Defaults to Images.  If the folder does not exist, it will be created.
+                See :py:meth:`cornellGrading.cornellGrading.createFolder` for details.
+            hidden (bool):
+                If the folder for image upload doesn't exist and needs to be created,
+                it will have student visibility set by hidden. Defaults True (not
+                visible to students without link).
+            editing_roles (str):
+                See canvas API. Comma sepeated string, defaults to "teachers"
+            published (bool):
+                Whether page is published on create (defaults False)
+
+        Returns:
+            canvasapi.page.Page:
+                The new page object
+
+        .. warning::
+            Uploaded files will overwrite files of the same name in the upload folder.
+
+        """
+
+        # get files from path with extensions 
+        files =  os.listdir(path)
+        if extensions:
+            files = [f for f in files if any(f.endswith(ext) for ext in extensions)]
+
+        # grab the folder to put files in
+        upfolder = self.createFolder(folder, hidden=hidden)
+
+        # upload and link to files
+        body = ""
+        for fname in files:
+
+            res = upfolder.upload(os.path.join(path,fname))
+            assert res[0], f"File {fname} upload failed."
+            print(f"Uploaded {fname}.")
+
+            upurl = res[1]["url"]
+            upfname = res[1]["filename"]
+            upepoint = upurl.split("/download")[0]
+
+            body += (
+                """<p>File: <a class="instructure_file_link """
+                """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
+                """data-api-endpoint="{2}" data-api-returntype="File">{0}</a>"""
+                """</p>""".format(upfname, upurl, upepoint)
+            )
+
+        res = self.createPage(
+            title, body, editing_roles=editing_roles, published=published
+        )
+        print(f"Created page '{title}'.")
+
+
+        return res
+
+      

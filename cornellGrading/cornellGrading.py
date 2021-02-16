@@ -1713,7 +1713,7 @@ class cornellGrading:
         extensions=None,
         prefix="",
         folder="Lecture Notes",
-        hidden=False,
+        hidden=True,
         editing_roles="teachers",
         published=False,
     ):

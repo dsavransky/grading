@@ -84,10 +84,11 @@ class cornellGrading:
         """Returns a list of courses
 
         Returns:
-            courseStrs (list):
-                Matched ordered list of course strings (list of str)
-            courseNums (list):
-                Matched ordered list of course numbers (list of int)
+            tuple:
+                courseStrs (list):
+                    Matched ordered list of course strings (str list)
+                courseNums (list):
+                    Matched ordered list of course numbers (int list)
         """
 
         crss = self.canvas.get_courses()

@@ -12,37 +12,28 @@ In Canvas:
 #. Go to Student View (button on right-hand side of home page), exit student view, and then ensure that the 'test student' appears in People when you are back in Instructor view (only necessary if you want the test student to be part of the qualtrics mailing list for debugging purposes).
 #. Navigate to Grades.  Click the settings icon (right of the search box) and go to the 'Grade Posting Policy tab'. Ensure that 'Automatically Post Grades' is clicked (this allows for students to see comments on HWs before grades are entered, which is necessary for link injection to the self-grading surveys). Be sure to click 'Update' if any changes are made.
 
-Now, in python:
+Now, in python (this assumes that you have completed all steps in :ref:`Setup`):
 
 .. code-block:: python
     
     from cornellGrading import cornellGrading
-
-    #connect to canvas
-    #if this is your first time doing this, you'll be prompted
-    #to enter your API token 
     c = cornellGrading()
 
     #get your coursenumber (the part in parentheses):
-    for cn in c.canvas.get_courses(): print(cn)
+    print("\n".join(c.listCourses()[0]))
 
     coursenum = ... #change to your actual number from list printed above
 
     c.getCourse(coursenum)
 
-    #sanity check
+    #consistency check
     print(c.coursename) #should be the course name you set in Canvas
     print(c.names) #should be all your students
 
-    #connect to qualtrics (skip if you don't care about qualtrics)
+    #connect to qualtrics and generate course mailing list
+    #(skip if you don't care about qualtrics)
     c.setupQualtrics()
-
-    #generate course mailing list
     c.genCourseMailingList()
-
-.. note::
-
-   On Windows, when running python in a ``cmd`` shell, pasting the API token into the shell will **not** work.  Instead, you can provide your token via a plain-text file, by using the keyword ``canvas_token_file`` and providing the full path to the file containing your token.  So, the first `cornellGrading` call above would be: ``c = cornellGrading(canvas_token_file=r'path_to_token_file')``.  Note that you only need to do this on your first ever instantiation of the object - the token will be save to your system's keychain after the first successful connection. You can then delete the text file from your system, if you wish, or save it for future use (but be sure to save it in a secure fashion).
 
 
 

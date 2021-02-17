@@ -80,6 +80,27 @@ class cornellGrading:
 
         self.canvas = canvas
 
+    def listCourses(self):
+        """Returns a list of courses
+
+        Returns:
+            tuple:
+                courseStrs (list):
+                    Matched ordered list of course strings (str list)
+                courseNums (list):
+                    Matched ordered list of course numbers (int list)
+        """
+
+        crss = self.canvas.get_courses()
+
+        courseStrs = []
+        courseNums = []
+        for c in crss:
+            courseStrs.append(str(c))
+            courseNums.append(c.id)
+
+        return courseStrs, courseNums
+
     def getCourse(self, coursenum):
         """Access course and load all student names, ids and netids
 

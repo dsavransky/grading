@@ -173,6 +173,27 @@ class cornellGrading:
 
         return utc_dt
 
+    def listAssignments(self):
+        """Returns a list of assignments
+
+        Returns:
+            tuple:
+                asgnNames (list):
+                    Matched ordered list of assignment strings (str list)
+                asgnIDs (list):
+                    Matched ordered list of assignment IDs (int list)
+        """
+
+        asgns = self.course.get_assignments()
+
+        asgnNames = []
+        asgnIDs = []
+        for a in asgns:
+            asgnNames.append(str(a))
+            asgnIDs.append(a.id)
+
+        return asgnNames, asgnIDs
+
     def getAssignment(self, assignmentName):
         """Locate assignment by name
 

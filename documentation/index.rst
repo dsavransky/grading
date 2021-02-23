@@ -12,8 +12,9 @@ Welcome to cornellGrading's documentation!
 
    setup
    usage
-   examples
+   latex
    qualtrics
+   examples
    cornellGrading
 
 Indices and tables

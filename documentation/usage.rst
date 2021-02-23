@@ -67,19 +67,20 @@ In python:
 
 
 Injecting Homework Text into the Canvas Assignment
-####################################################
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the homework file is a PDF compiled from LaTeX source code, and resides in the same directory as the original ``tex`` file, then you can inject its contents directly into the homework assignment as HTML, along with the link to the PDF, by running:
 
 .. code-block:: python
 
-    res = c.uploadHW(assignmentNum,duedate,hwfile,injectText=True)
+    res = c.uploadHW(assignmentNum, duedate, hwfile, injectText=True)
 
-Caveats:
-  * ``hwfile`` must point at the PDF in the directory where it was compiled, and all other required files (figures, etc.) must reside in this same path.
-  * ``pandoc`` must be installed
-  * ``cornellGrading`` must have been installed with the ``latex2html`` extra (this also installs ``pdf2image`` and ``Pillow``).
-  * This is absolutely not going to work for all LaTeX - only what pandoc can convert to HTML.
+See :ref:`Latex2Canvas` for further details.
+
+.. note::
+    
+    ``hwfile`` must point at the PDF in the directory where it was compiled, and all other required files (figures, etc.) must reside in this same path.
+
 
 Create a HW Survey
 --------------------
@@ -157,23 +158,6 @@ By default, this will take the sum of all of the survey question responses, scal
 
 Default behavior is to check for late submissions, and then subtract 1/4th the total number of points if the assignment is late. Lateness is defined by the ``maxDaysLate`` keyword (defaults to 3), past which the assignment is marked zero, and the penalty itself is set by ``latePenalty``.  In order to toggle off late checking alltogether, set ``checkLate=False``, so that the last line above becomes ``c.selfGradingImport(assignmentNum,checkLate=False)``.
 
-If your assignment has extra credit problems, you can identify these in your survey by adding the words 'Extra Credit' to any of the question names.  In this case, a maximum of ``ecscore`` points (default is 3) will be added to the HW score for all extra credit problems being self-marked perfect (and scaling down consistently with self-grading). 
-
-Create Canvas Page from LaTeX
----------------------------------
-
-The :py:meth:`~.cornellGrading.latex2page` method allows you to convert LaTeX source into a Canvas page.
-
-Assuming you have instantiated a ``cornellGrading`` object as ``c``, as above, you can run:
-
-.. code-block:: python
-
-    res = c.latex2page(fname, title)
-
-where `fname` is the full path to either the LaTeX source or the PDF compiled from the source (which must be in the same directory as the source), and `title` is the title for the generated page.  Other method options include:
-
-* ``insertPDF=True`` will also include a link to the compiled PDF in the generated page (in this case `fname` must be the compiled PDF)
-* ``published=True`` will automatically publish the page (the page is unpublished by default).
-
+If your assignment has extra credit problems, you can identify these in your survey by adding the words 'Extra Credit' to any of the question names.  In this case, a maximum of ``ecscore`` points (default is 3) will be added to the HW score for all extra credit problems being self-marked perfect (and scaling down consistently with self-grading).
 
 

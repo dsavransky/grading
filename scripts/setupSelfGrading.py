@@ -1,3 +1,5 @@
+#!python
+
 """
 Create a qualtrics survey and a Canvas self-grading assignment
 """

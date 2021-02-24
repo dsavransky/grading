@@ -1,10 +1,13 @@
 import setuptools
 import os
 import re
+import glob
 
+#get long-form readme
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+#get version from __init__
 with open(os.path.join("cornellGrading", "__init__.py"), "r") as f:
     version_file = f.read()
 
@@ -15,6 +18,8 @@ if version_match:
 else:
     raise RuntimeError("Unable to find version string.")
 
+#get all scriptfiles
+scriptfiles = glob.glob("scripts/*.py")
 
 setuptools.setup(
     name="cornellGrading",
@@ -27,6 +32,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/dsavransky/grading",
     packages=["cornellGrading"],
+    scripts=scriptfiles,
     install_requires=["numpy", "pandas", "keyring", "pytz", "canvasapi", "requests",],
     extras_require={"latex2html": ["pdf2image", "Pillow"]},
     classifiers=[

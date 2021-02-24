@@ -1,3 +1,5 @@
+#!python
+
 """
 Parse MATLAB Grader output and upload to Canvas
 

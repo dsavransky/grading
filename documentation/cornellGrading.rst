@@ -4,14 +4,6 @@ cornellGrading package
 Submodules
 ----------
 
-cornellGrading.canvastex module
--------------------------------
-
-.. automodule:: cornellGrading.canvastex
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 cornellGrading.cornellGrading module
 ------------------------------------
 
@@ -24,22 +16,6 @@ cornellGrading.cornellQualtrics module
 --------------------------------------
 
 .. automodule:: cornellGrading.cornellQualtrics
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-cornellGrading.matlabgrader module
-----------------------------------
-
-.. automodule:: cornellGrading.matlabgrader
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-cornellGrading.setupSelfGrading module
---------------------------------------
-
-.. automodule:: cornellGrading.setupSelfGrading
    :members:
    :undoc-members:
    :show-inheritance:

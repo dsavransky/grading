@@ -12,6 +12,7 @@
 #
 import os
 import sys
+import re
 sys.path.insert(0, os.path.abspath('..'))
 
 
@@ -21,8 +22,18 @@ project = 'cornellGrading'
 copyright = '2020, Dmitry Savransky'
 author = 'Dmitry Savransky'
 
+with open(os.path.join("..", "cornellGrading", "__init__.py"), "r") as f:
+    version_file = f.read()
+
+version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
+
+if version_match:
+    release = version_match.group(1)
+else:
+    raise RuntimeError("Unable to find version string.")
+
 # The full version, including alpha/beta/rc tags
-release = '2.0.0'
+# release = '2.0.0'
 
 
 # -- General configuration ---------------------------------------------------

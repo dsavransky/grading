@@ -8,7 +8,7 @@ if [ ! -d "../cornellGrading" ] || [ `basename $PWD` != "documentation" ] ; then
 fi
 
 
-sphinx-apidoc -f -o . ../cornellGrading/ ../cornellGrading/setupAssignments.py
+sphinx-apidoc -f -o . ../cornellGrading/ 
 
 rm modules.rst
 

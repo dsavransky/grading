@@ -1,7 +1,7 @@
 # grading
 Routines for semi-automated grading of MATLAB coding assignments and interaction with Canvas and Qualtrics.
 
-By Dmitry Savransky with contributions by Guy Hoffman.
+By Dmitry Savransky with contributions by Guy Hoffman and Brian Kirby. Thanks also to Hadas Ritz for extensive testing and QA.
 
 Please note: the Canvas routines have the potential to bork your gradebook and (unlikely but possibly) whole course site. **Use at your own risk**. 
 

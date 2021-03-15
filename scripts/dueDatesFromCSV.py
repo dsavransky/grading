@@ -35,6 +35,14 @@ def getArgs():
 
 
 def chooseCourse(c):
+    """Interactively choose courses from Canvas
+
+    Args:
+        c (cornellGrading): The cornellGrading object initialized by the user
+
+    Returns:
+        int: Course ID 
+    """
     strs, ids = c.listCourses()
     cli = Bullet("Choose course", strs, margin=3, return_index=True)
     _, idx = cli.launch()
@@ -42,6 +50,14 @@ def chooseCourse(c):
 
 
 def chooseAssignment(c):
+    """Interactively choose assignment from course
+
+    Args:
+        c (cornellGrading): The cornellGrading object initialized after selecting a course
+
+    Returns:
+        int: Assignment ID
+    """
     strs, ids = c.listAssignments()
     cli = Bullet("Choose assignment", strs, margin=3, return_index=True)
     _, idx = cli.launch()
@@ -49,6 +65,15 @@ def chooseAssignment(c):
 
 
 def getAssignment(c, args):
+    """General assignment chooser, taking into account command line arguments and complementing with interactive menus
+
+    Args:
+        c (cornellGrading): The cornellGrading object initialized by the user
+        args (argparser args): Argument list parsed by argparse
+
+    Returns:
+        canvasapi.Assignment: The assignment object selected
+    """
 
     if args.courseNum:
         coursenum = args.courseNum

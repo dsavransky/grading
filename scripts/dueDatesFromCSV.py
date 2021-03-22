@@ -13,11 +13,13 @@ def getArgs():
         description="Set up complex due dates based on CSV file"
     )
     parser.add_argument(
+        "-cn",
         "--courseNum",
         type=int,
         help="Canvas course id (int). Skip for interactive course menu.",
     )
     parser.add_argument(
+        "-an",
         "--assignmentNum",
         type=int,
         help="Number of assignment (int). Skip for interactive assignment menu.",
@@ -94,7 +96,7 @@ def getAssignment(c, args):
     return asgn
 
 
-if __name__ == "__main__":
+def main():
 
     c = cornellGrading.cornellGrading()
     args = getArgs()
@@ -151,3 +153,6 @@ if __name__ == "__main__":
                 print(
                     "Request failed: This usually means that the section already has a due date. Consider using the --force flag."
                 )
+
+if __name__ == "__main__":
+    main()

@@ -4,6 +4,7 @@ from cornellGrading import cornellGrading
 import easygui  # graphical user interface
 import re  # regular expressions, for search in string
 import urllib.parse
+import numpy as np  # python scientific computing package
 
 
 # define converter to convert standalone input latex string into html
@@ -31,8 +32,6 @@ def convall(text):
     return p.sub(convlatex, text)
 
 
-
-
 def main():
 
     c = cornellGrading()
@@ -45,22 +44,20 @@ def main():
         re.findall(r"\((.+?)\)", i)[-1] for i in courseNames
     ]  # pull out rightmost instance of a string in between parentheses
 
-
     # append  end-program options, with dummy string
     endProgram = "-1234"
     courseNames.insert(0, "end program")
     courseNumbers.insert(0, endProgram)
     courseChosen = easygui.choicebox(
-        "Select canvas course (or exit)", "Course Selector (or exit)", choices=courseNames
+        "Select canvas course (or exit)",
+        "Course Selector (or exit)",
+        choices=courseNames,
     )
     coursenum = int(courseNumbers[courseNames.index(courseChosen)])
 
     c.getCourse(coursenum)
 
     # load text file with BK-formatted multiple-choice questions using the numpy module
-
-    import numpy as np  # python scientific computing package
-
     filename = easygui.fileopenbox(
         msg="Select a txt multiple-choice question bank input file",
         title="Input File Selector",
@@ -109,5 +106,6 @@ def main():
             }
         )  # in canvas, upload question
 
+
 if __name__ == "__main__":
-    main()  
+    main()

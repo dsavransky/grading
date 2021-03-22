@@ -43,7 +43,7 @@ def chooseCourse(c):
         c (cornellGrading): The cornellGrading object initialized by the user
 
     Returns:
-        int: Course ID 
+        int: Course ID
     """
     strs, ids = c.listCourses()
     cli = Bullet("Choose course", strs, margin=3, return_index=True)
@@ -125,34 +125,37 @@ def main():
 
             sectionid = -1
             for s in secs:
-                if s.name == row['section']:
+                if s.name == row["section"]:
                     sectionid = s.id
 
             assert sectionid > -1, f"Course doesn't have section {row['section']}"
 
             # Set override for due dates
-            due_date = c.localizeTime(row['due_date'], row['due_time'])
+            due_date = c.localizeTime(row["due_date"], row["due_time"])
             overridedef = {
                 "course_section_id": sectionid,
                 "due_at": due_date.strftime("%Y-%m-%dT%H:%M:%SZ"),  # must be UTC
             }
-           
+
             # Add optional override for "available from" dates
             if "from_date" in reader.fieldnames:
-                from_date = c.localizeTime(row['from_date'], row['from_time'])
-                overridedef["unlock_at"] = from_date.strftime("%Y-%m-%dT%H:%M:%SZ") # UTC
+                from_date = c.localizeTime(row["from_date"], row["from_time"])
+                overridedef["unlock_at"] = from_date.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )  # UTC
 
             # Add optional override for "available until" dates
             if "until_date" in reader.fieldnames:
-                until_date = c.localizeTime(row['until_date'], row['until_time'])
-                overridedef["lock_at"] = until_date.strftime("%Y-%m-%dT%H:%M:%SZ") # UTC
-           
+                until_date = c.localizeTime(row["until_date"], row["until_time"])
+                overridedef["lock_at"] = until_date.strftime("%Y-%m-%dT%H:%M:%SZ")  # UTC
+
             try:
                 asgn.create_override(assignment_override=overridedef)
             except:
                 print(
                     "Request failed: This usually means that the section already has a due date. Consider using the --force flag."
                 )
+
 
 if __name__ == "__main__":
     main()

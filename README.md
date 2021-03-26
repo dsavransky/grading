@@ -60,3 +60,7 @@ Docstrings: https://grading.readthedocs.io/en/latest/cornellGrading.html#module-
 Acknowledgements
 =====================
 cornellGrading uses [UCF/Open_'s](https://ucfopen.github.io/) [canvasapi](https://github.com/ucfopen/canvasapi) and the [black](https://github.com/psf/black) code formatter. 
+
+Testimonials
+=====================
+*I love pagescript.py. So easy to add my notes, matlab, powerpoint to module right after class. Bless you.* --Hadas Ritz

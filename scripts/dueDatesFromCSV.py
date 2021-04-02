@@ -3,7 +3,11 @@
 import argparse
 import csv
 
-from bullet import Bullet
+from sys import platform
+if platform == "linux" or platform == "linux2" or platform == "darwin":
+    from bullet import Bullet
+elif platform == "win32":
+    pass
 
 import cornellGrading
 

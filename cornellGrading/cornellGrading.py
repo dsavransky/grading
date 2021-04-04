@@ -1081,7 +1081,12 @@ class cornellGrading:
         htmlf = os.path.join(tmpdir, hwf.split(os.extsep)[0] + os.extsep + "html")
 
         # preflight: let's replace tex commands that Canvas can't handle
-        texsubdict = {r"\\nicefrac": r"\\frac", r"\\ensuremath": ""}
+        texsubdict = {
+            r"\\nicefrac": r"\\frac",
+            r"\\ensuremath": r"",
+            r"\\leftmoon": r"\\mathrm{Moon}",
+            r"\\Venus": r"Venus",
+        }
 
         # read orig tex
         with open(os.path.join(hwd, texf)) as f:

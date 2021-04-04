@@ -1,7 +1,7 @@
 # grading
 Routines for semi-automated grading of MATLAB coding assignments and interaction with Canvas and Qualtrics.
 
-By Dmitry Savransky with contributions by Guy Hoffman.
+By Dmitry Savransky with contributions by Guy Hoffman and Brian Kirby. Thanks also to Hadas Ritz for extensive testing and QA.
 
 Please note: the Canvas routines have the potential to bork your gradebook and (unlikely but possibly) whole course site. **Use at your own risk**. 
 
@@ -60,3 +60,7 @@ Docstrings: https://grading.readthedocs.io/en/latest/cornellGrading.html#module-
 Acknowledgements
 =====================
 cornellGrading uses [UCF/Open_'s](https://ucfopen.github.io/) [canvasapi](https://github.com/ucfopen/canvasapi) and the [black](https://github.com/psf/black) code formatter. 
+
+Testimonials
+=====================
+*I love pagescript.py. So easy to add my notes, matlab, powerpoint to module right after class. Bless you.* --Hadas Ritz

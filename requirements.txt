@@ -6,3 +6,5 @@ canvasapi
 requests
 pdf2image
 Pillow
+console-menu
+bullet

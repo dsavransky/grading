@@ -20,6 +20,14 @@ cornellGrading.cornellQualtrics module
    :undoc-members:
    :show-inheritance:
 
+cornellGrading.cornellInterface module
+--------------------------------------
+
+.. automodule:: cornellGrading.cornellInterface
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

@@ -12,13 +12,12 @@ import os
 import re
 import warnings
 from cornellGrading.cornellQualtrics import cornellQualtrics
+import urllib.parse
+import subprocess
+import shutil
 
 try:
-    import urllib.parse
-    import subprocess
-    import shutil
-    from html.parser import HTMLParser
-    import pdf2image
+    from cornellGrading.pandocHTMLParser import pandocHTMLParser
 except ImportError:
     pass
 
@@ -525,7 +524,7 @@ class cornellGrading:
             body = ""
 
         out = self.latex2html(fname, folder=folder, hidden=hidden)
-        body += " ".join(out)
+        body += " " + out
 
         res = self.createPage(
             title, body, editing_roles=editing_roles, published=published
@@ -1141,136 +1140,9 @@ class cornellGrading:
 
         upfolder = self.createFolder(folder, hidden=hidden)
 
-        # now we need to parse the result and fix things
-        class MyHTMLParser(HTMLParser):
-            def __init__(self):
-                HTMLParser.__init__(self)
-                self.inBody = False  # toggle for inside body block
-                self.inFigcaption = False  # toggle for inside figure caption
-                self.inSpan = False  # toggle for inside span
-                self.imagesUploaded = []  # storage for images uploaded
-                self.figcaptions = []  # storage for uploaded image captions
-                self.inStyle = False  # toggle for inisde style
-                self.spanp = re.compile(r"span.(.*?)\s*{(.*?)}")
-                self.spanDefs = {}
-                self.inOL = False  # toggle for inside ordered list
-                self.inNestedOL = False  # toggle for inside nested ordered list
-                self.labelp = re.compile(r"\\label{(\S*)}")
-                self.eqp = re.compile(r"https://latex.codecogs.com/png.latex\?(.*)")
-                self.eqlabels = {}
-
-            def handle_starttag(self, tag, attrs):
-                if tag == "body":
-                    self.inBody = True
-
-                if tag == "ol":
-                    if self.inOL is True:
-                        self.inNestedOL = True
-                    else:
-                        self.inOL = True
-
-                if tag == "img":
-                    imsrc = dict(attrs)["src"]
-
-                    # let's look for label directives in equations
-                    tmp = self.eqp.match(imsrc)
-                    if tmp:
-                        tmp2 = self.labelp.search(dict(attrs)["alt"])
-                        if tmp2:
-                            self.eqlabels[
-                                urllib.parse.quote(tmp.groups()[0])
-                            ] = tmp2.groups()[0]
-
-                    # anyting that's not a link must be an actual image
-                    if not (imsrc.startswith("http")):
-                        # if you don't see it in the source directory, it's probably a
-                        # PDF and needs to be converted to PNG
-                        if not (os.path.exists(os.path.join(hwd, imsrc))):
-                            # look for the pdf of this image
-                            imf = os.path.join(
-                                hwd, imsrc.split(os.extsep)[0] + os.extsep + "pdf"
-                            )
-                            if not os.path.exists(imf):
-                                imf = os.path.join(
-                                    hwd,
-                                    imsrc.split(os.extsep)[0]
-                                    + "-eps-converted-to"
-                                    + os.extsep
-                                    + "pdf",
-                                )
-                            assert os.path.exists(imf), (
-                                "Original image file not found for %s" % imsrc
-                            )
-
-                            pilim = pdf2image.convert_from_path(
-                                imf,
-                                dpi=150,
-                                output_folder=None,
-                                fmt="png",
-                                use_cropbox=False,
-                                strict=False,
-                            )
-                            pngf = os.path.join(tmpdir, imsrc)
-                            pilim[0].save(pngf)
-                            assert os.path.exists(pngf), (
-                                "Cannot locate png output %s" % htmlf
-                            )
-                        else:
-                            pngf = os.path.join(hwd, imsrc)
-
-                        # push PNG up into the HW folder
-                        res = upfolder.upload(pngf)
-                        assert res[0], "Imag upload failed: %s" % pngf
-                        self.imagesUploaded.append(
-                            {
-                                "orig": imsrc,
-                                "url": res[1]["preview_url"].split("/file_preview")[0],
-                            }
-                        )
-
-                if tag == "figcaption":
-                    self.inFigcaption = True
-
-                if tag == "span":
-                    self.inSpan = True
-
-                if tag == "style":
-                    self.inStyle = True
-
-            def handle_endtag(self, tag):
-                if tag == "body":
-                    self.inBody = False
-
-                if tag == "ol":
-                    if self.inNestedOL is True:
-                        self.inNestedOL = False
-                    else:
-                        self.inOL = False
-
-                if tag == "figcaption":
-                    self.inFigcaption = False
-
-                if tag == "span":
-                    self.inSpan = False
-
-                if tag == "style":
-                    self.inStyle = False
-
-            def handle_data(self, data):
-                if self.inFigcaption and not (self.inSpan):
-                    self.figcaptions.append(data)
-
-                if self.inStyle:
-                    tmp = self.spanp.findall(data)
-                    if tmp:
-                        for t in tmp:
-                            self.spanDefs['class="{}"'.format(t[0])] = t[1]
-
-            # end MyHTMLParser
-
         # global replacements
         repdict = {
-            r'class="math display"': r'style = "display: block; text-align: center; margin: 0.5rem auto;"',
+            r'class="math display"': r'style="display: block; text-align: center; margin: 0.5rem auto;"',
             r'img style="vertical-align:middle"': r'img class="equation_image"',
             r'src="https://latex.codecogs.com/png.latex\?': r'src="https://canvas.cornell.edu/equation_images/',
         }
@@ -1280,10 +1152,11 @@ class cornellGrading:
         def convlatex(x):
             return re.sub(x.groups()[0], urllib.parse.quote(x.groups()[0]), x.group())
 
-        parser = MyHTMLParser()
+        # now we need to parse the result and fix things
+        parser = pandocHTMLParser(hwd, upfolder)
         out = []
         for line in lines:
-            _ = parser.feed(line)
+            parser.feed(line)
             if parser.inBody:
                 tmp = p.sub(convlatex, line)
                 for k, v in repdict.items():
@@ -1310,16 +1183,40 @@ class cornellGrading:
                 out.append(tmp)
 
         out = out[1:]
+        # out = ' #strdelim# '.join(out)
+        out = " ".join(out)
 
-        # handle any equation labels
+        # handle any labeled equations
         if parser.eqlabels:
-            for j, o in enumerate(out):
-                for cl, val in parser.eqlabels.items():
-                    if cl in o:
-                        out[j] = o.replace(
-                            '{}"'.format(cl), '{}" id="{}"'.format(cl, val)
-                        )
+            for label, (eqnum, labelstr) in parser.eqlabels.items():
+                enclabel = urllib.parse.quote(urllib.parse.quote(labelstr))
 
+                # for every equation image with a label, find it, and replace with a
+                # span with an equation number
+                imtag = re.search(
+                    r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
+                        enclabel
+                    ),
+                    out,
+                )
+                imspan = (
+                    r'<span style="margin: 1ex auto; display: table; '
+                    r'text-align: center; width: 100%; vertical-align: middle;"> '
+                    r'{0}<span id="{1}" style="display: table-cell; '
+                    r'text-align: left; vertical-align: middle;">'
+                    r"({2})</span></span>"
+                ).format(imtag.groups()[0], label, eqnum)
+
+                out = out.replace(imtag.group(), imspan)
+
+                # if encoded or unencoded label in string, kill them
+                out = out.replace(labelstr, "")
+                out = out.replace(urllib.parse.quote(urllib.parse.quote(labelstr)), "")
+
+                # replace instances of [label] with eq num
+                out = out.replace("[{}]".format(label), "{}".format(eqnum))
+
+        # out = out.split(' #strdelim# ')
         return out
 
     def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None, ecprobs=[]):
@@ -1554,7 +1451,7 @@ class cornellGrading:
 
             if injectText:
                 out = self.latex2html(solutions, folder=hwfoldername)
-                desc = desc + " ".join(out)
+                desc += " " + out
 
             _ = self.createAssignment(
                 assname,

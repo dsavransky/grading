@@ -2,12 +2,12 @@ import csv
 
 from sys import platform
 
-if platform.startswith('linux') or platform == "darwin":
+if platform.startswith("linux") or platform == "darwin":
     from bullet import Bullet
 elif platform == "win32":
     from consolemenu import SelectionMenu
-else: 
-    raise Exception('Unsupported Platform')
+else:
+    raise EnvironmentError("Unsupported Platform")
 
 
 def usingWindows():

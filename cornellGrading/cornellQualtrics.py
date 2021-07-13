@@ -442,7 +442,9 @@ class cornellQualtrics:
 
         # Step 1: Creating Data Export
         downloadRequestUrl = baseUrl
-        downloadRequestPayload = '{{"useLabels":{0}, "format":"{1}"}}'.format(useLabels,fileFormat)
+        downloadRequestPayload = '{{"useLabels":{0}, "format":"{1}"}}'.format(
+            useLabels, fileFormat
+        )
         downloadRequestResponse = requests.request(
             "POST",
             downloadRequestUrl,

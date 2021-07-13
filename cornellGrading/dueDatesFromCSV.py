@@ -147,7 +147,9 @@ def main():
             # Add optional override for "available until" dates
             if "until_date" in reader.fieldnames:
                 until_date = c.localizeTime(row["until_date"], row["until_time"])
-                overridedef["lock_at"] = until_date.strftime("%Y-%m-%dT%H:%M:%SZ")  # UTC
+                overridedef["lock_at"] = until_date.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )  # UTC
 
             try:
                 asgn.create_override(assignment_override=overridedef)

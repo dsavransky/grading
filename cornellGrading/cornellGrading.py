@@ -1091,13 +1091,26 @@ class cornellGrading:
         with open(os.path.join(hwd, texf)) as f:
             lines = f.readlines()
 
-        for j, ll in enumerate(lines):
+        # parse orig tex, flattening any inputs
+        inputp = re.compile(r"\\input{([^}]+)}")
+        linesout = []
+        for ll in lines:
+            # if line contains and input, repace it with the input.
+            if inputp.search(ll):
+                tmp = inputp.search(ll)
+                with open(os.path.join(hwd, tmp.group(1))) as f:
+                    newlines = f.readlines()
+
+                ll = ll.replace(tmp.group(0), " ".join(newlines))
+
+            # apply substitutions
             for key, val in texsubdict.items():
                 ll = re.sub(key, val, ll)
-            lines[j] = ll
+
+            linesout.append(ll)
 
         with open(os.path.join(tmpdir, texf), "w") as f:
-            for ll in lines:
+            for ll in linesout:
                 f.write(ll)
 
         # run pandoc

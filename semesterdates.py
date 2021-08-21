@@ -211,15 +211,18 @@ out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #3
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #4
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #5
-out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #6
-out += '<tr><td style="background-color: #eeeeee;" colspan=5>No classes 10/14</td></tr>\n'
+out += "<tr>"+ll.nextweek()+ll.nextdates(3)+ll.nextlec()+ll.nexthw()+"</tr>\n" #6
+out += '<tr><td style="background-color: #eeeeee;" colspan=5>Fall Break. No classes 10/9 - 10/12</td></tr>\n'
+out += '<tr><td style="background-color: #eeeeee;" colspan=5>Self-Administered Prelim Covering Weeks/HWs 1-6. 10/14 - 10/15</td></tr>\n'
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #7
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #8
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #9
-out += "<tr>"+ll.nextweek()+ll.nextdates(3)+ll.nextlec()+ll.nexthw()+"</tr>\n" #10
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #10
 out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #11
-out += "<tr>"+ll.nextweek()+ll.nextdates(3)+ll.nextlec()+ r'<td style="width: 15%;">Project Drafts <br/> Due 12/16</td></tr>\n' #12
-out += '<tr><td style="background-color: #eeeeee;" colspan=5>Last Day of Classes 12/16. Final Exams 12/17-12/21</td></tr>\n'
+out += "<tr>"+ll.nextweek()+ll.nextdates(2)+ll.nextlec()+ll.nexthw()+"</tr>\n" #12
+out += '<tr><td style="background-color: #eeeeee;" colspan=5>Thanksgiving Break. No classes 11/24 - 11/28</td></tr>\n'
+out += "<tr>"+ll.nextweek()+ll.nextdates(3)+ll.nextlec()+ r'<td style="width: 15%;">Project Due 12/7</td></tr>\n' #13
+out += '<tr><td style="background-color: #eeeeee;" colspan=5>Last Day of Classes 12/7</td></tr>\n'
 
 out+='''
 </tbody>

@@ -352,6 +352,7 @@ class cornellGrading:
         allowed_extensions=None,
         due_at=None,
         unlock_at=None,
+        external_tool_tag_attributes=None,
     ):
         """Create an assignment
 
@@ -375,7 +376,9 @@ class cornellGrading:
                 Due date (not included if None). Must be timezone aware and UTC!
             unlock_at (datetime.datetime):
                 Unlock date (not included if None). Must be timezone aware and UTC!
-
+            external_tool_tag_attributes (dict):
+                See API docs, which are incredibly unhelpful.  Best to inspect an
+                existing external tool assignment object
 
         Returns:
             canvasapi.assignment.Assignment:
@@ -415,6 +418,9 @@ class cornellGrading:
 
         if allowed_extensions:
             assignment["allowed_extensions"] = allowed_extensions
+
+        if external_tool_tag_attributes:
+            assignment["external_tool_tag_attributes"] = external_tool_tag_attributes
 
         res = self.course.create_assignment(assignment=assignment)
 
@@ -936,6 +942,8 @@ class cornellGrading:
         unlockDelta=None,
         injectText=False,
         allowed_extensions=None,
+        moduleName=None,
+        matlabParts=0,
     ):
         """Create a Canvas assignment, set the duedae, upload an associated
         PDF and link in the assignment description, set the number of points, and
@@ -961,6 +969,12 @@ class cornellGrading:
                 assignment description.  Requires pandoc to be installed and callable!
             allowed_extensions (list):
                 List of strings for allowed extensions
+            moduleName (str):
+                Name of module to add assignment object to.
+            matlabParts (int):
+                If non-zero, this is a MATLAB assignment, and the relevant number of
+                external tool Mathworks grader assignments will be created in the MATLAB
+                Assignment group.
 
         Returns:
             canvasapi.assignment.Assignment
@@ -974,56 +988,87 @@ class cornellGrading:
         duedate = self.localizeTime(duedate)
 
         hwname = "HW%d" % assignmentNum
+        if matlabParts > 0:
+            hwname = "MATLAB " + hwname
 
-        try:
-            hw = self.getAssignment(hwname)
-            alreadyExists = True
-        except AssertionError:
-            alreadyExists = False
+        if matlabParts > 1:
+            hwnames = []
+            for j in range(1, matlabParts + 1):
+                hwnames.append("{0} Part {1}".format(hwname, j))
+        else:
+            hwnames = [hwname]
 
-        assert not (alreadyExists), "%s already exists" % hwname
+        # ensure that assignment(s) don't already exist
+        for h in hwnames:
+            try:
+                hw = self.getAssignment(h)
+                alreadyExists = True
+            except AssertionError:
+                alreadyExists = False
 
-        # grab assignment group
-        hwgroup = self.getAssignmentGroup("Assignments")
+            assert not (alreadyExists), "%s already exists" % h
 
-        # grab homeworks folder
-        hwfoldername = "Homeworks/" + hwname
-        hwfolder = self.createFolder(hwfoldername, hidden=True)
+        # grab assignment group, homeworks folder and upload and set description
+        if matlabParts > 0:
+            hwgroup = self.getAssignmentGroup("MATLAB Assignments")
+            desc = None
+            external_tool_tag_attributes = {
+                "url": "https://lms-grader.mathworks.com/launch",
+                "new_tab": False,
+            }
+            submission_types = ["external_tool"]
+        else:
+            hwgroup = self.getAssignmentGroup("Assignments")
 
-        res = hwfolder.upload(hwfile)
-        assert res[0], "HW Upload failed."
+            # grab homeworks folder
+            hwfoldername = "Homeworks/" + hwname
+            hwfolder = self.createFolder(hwfoldername, hidden=True)
 
-        hwurl = res[1]["url"]
-        hwfname = res[1]["filename"]
-        hwepoint = hwurl.split("/download")[0]
+            res = hwfolder.upload(hwfile)
+            assert res[0], "HW Upload failed."
 
-        desc = (
-            """<p>Downloadable Assignment: <a class="instructure_file_link """
-            """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
-            """data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(
-                hwfname, hwurl, hwepoint
+            hwurl = res[1]["url"]
+            hwfname = res[1]["filename"]
+            hwepoint = hwurl.split("/download")[0]
+
+            desc = (
+                """<p>Downloadable Assignment: <a class="instructure_file_link """
+                """instructure_scribd_file" title="{0}" href="{1}&amp;wrap=1" """
+                """data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>""".format(
+                    hwfname, hwurl, hwepoint
+                )
             )
-        )
 
+            if injectText:
+                out = self.latex2html(hwfile, folder=hwfoldername)
+                desc = desc + " " + out
+
+            external_tool_tag_attributes = None
+            submission_types = ["online_upload"]
+
+        # calculate unlock date if given delta
         if unlockDelta:
             unlockAt = duedate - timedelta(days=unlockDelta)
         else:
             unlockAt = None
 
-        if injectText:
-            out = self.latex2html(hwfile, folder=hwfoldername)
-            desc = desc + " ".join(out)
+        # create assignments as needed
+        for hwname in hwnames:
+            hw = self.createAssignment(
+                hwname,
+                hwgroup.id,
+                points_possible=10,
+                description=desc,
+                due_at=duedate,
+                unlock_at=unlockAt,
+                submission_types=submission_types,
+                allowed_extensions=allowed_extensions,
+                external_tool_tag_attributes=external_tool_tag_attributes,
+            )
 
-        hw = self.createAssignment(
-            hwname,
-            hwgroup.id,
-            points_possible=10,
-            description=desc,
-            due_at=duedate,
-            unlock_at=unlockAt,
-            submission_types=["online_upload"],
-            allowed_extensions=allowed_extensions,
-        )
+            if moduleName:
+                module = self.getModule(moduleName)
+                self.add2module(module, hw.name, hw)
 
         return hw
 
@@ -1794,7 +1839,9 @@ class cornellGrading:
             title (str):
                 Title of the module item
             object (canvasapi.CanvasObject):
-                The object to be added to the module. Tested with Page and Assignment so far. Type should be one of [File, Page, Discussion, Assignment, Quiz, SubHeader, ExternalUrl, ExternalTool].
+                The object to be added to the module. Tested with Page and Assignment
+                so far. Type should be one of [File, Page, Discussion, Assignment, Quiz,
+                SubHeader, ExternalUrl, ExternalTool].
         """
 
         obj_type = type(object).__name__

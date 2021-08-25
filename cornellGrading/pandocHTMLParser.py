@@ -1,7 +1,6 @@
 from html.parser import HTMLParser
 import re
 import os
-import urllib.parse
 import pdf2image
 import tempfile
 
@@ -30,6 +29,8 @@ class pandocHTMLParser(HTMLParser):
         self.inSpan = False  # toggle for inside span
         self.imagesUploaded = []  # storage for images uploaded
         self.figcaptions = []  # storage for uploaded image captions
+        self.figCounter = 1   # increment on figure captions
+        self.figLabels = {}    # storage for figure label replacement
         self.inStyle = False  # toggle for inisde style
         self.inOL = False  # toggle for inside ordered list
         self.inNestedOL = False  # toggle for inside nested ordered list
@@ -146,8 +147,12 @@ class pandocHTMLParser(HTMLParser):
             self.inStyle = False
 
     def handle_data(self, data):
-        if self.inFigcaption and not (self.inSpan):
-            self.figcaptions.append(data)
+        if self.inFigcaption:
+            if not(self.inSpan):
+                self.figcaptions.append(data)
+            else:
+                self.figLabels[data] = "[Figure {}]".format(self.figCounter)
+                self.figCounter += 1
 
         if self.inStyle:
             tmp = self.spanp.findall(data)

@@ -1274,6 +1274,11 @@ class cornellGrading:
                 # replace instances of [label] with eq num
                 out = out.replace("[{}]".format(label), "{}".format(eqnum))
 
+        # handle any figure labels
+        if parser.figLabels:
+            for cl, val in parser.figLabels.items():
+                out = out.replace(cl, val)
+
         # out = out.split(' #strdelim# ')
         return out
 

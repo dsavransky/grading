@@ -209,3 +209,142 @@ I decided (for reasons that defy explanation), to give a personalized, self-admi
         dat = dat.assign(Duration=testtimes)
         dat.to_csv(os.path.join(prelimpath,'assigned_questions.csv'),index=False)
 
+Split Assignments
+------------------------
+
+A colleague wanted to give two different assignments to two sub-sections of their class (with a large enrollment, so doing it manually would be very annoying).  They wanted everyone with an even netid to get one assignment, and everyone with an odd netid to get the other.  Since the assignments could be deployed via quizzes, this can be done as a trivial extension of the example above: you generate two quizzes, and use assignment overrides to assign each one to half the course.  It looks something like this:
+
+    .. code-block:: python
+
+        from cornellGrading import cornellGrading
+        from datetime import datetime, timedelta
+        import numpy as np
+        import re
+
+        #set up  course
+        c = cornellGrading()
+        coursenum = ...
+        c.getCourse(coursenum)
+
+        #create two groups split by netid
+        netids = c.netids
+        names = c.names
+        canvasids = c.ids
+        netids = netids[names != 'Student, Test']
+        canvasids = canvasids[names != 'Student, Test']
+        names = names[names != 'Student, Test']
+        pn = re.compile('[a-z]+(\d+)')
+        numids = np.array([int(pn.match(n).group(1)) for n in netids])
+        odds = np.mod(numids,2).astype(bool)
+        groups = [list(canvasids[odds]), list(canvasids[~odds])]
+
+        #grab the assignment group you want this to go into
+        assgroup  = c.getAssignmentGroup("Assignments")
+
+        # set due date and unlock date
+        duedate = c.localizeTime("2021-09-08",duetime="10:00:00")
+        unlockat = c.localizeTime("2021-09-04",duetime="17:00:00")
+
+        # generate two quizzes
+        quiznames = ["Assignment 1a", "Assignment 1b"]
+        for j in range(1,3):
+            quizdef = {
+            "title": quiznames[j-1],
+            "description": "Some text here",
+            "quiz_type":"assignment",
+            "assignment_group_id": assgroup.id,
+            #"time_limit": 180, #this is in minutes
+            "shuffle_answers": False,
+            "hide_results": 'always',
+            "show_correct_answers": False,
+            "show_correct_answers_last_attempt": False,
+            "allowed_attempts": 1,
+            "one_question_at_a_time": False,
+            "published": False, #super important!
+            "only_visible_to_overrides": True #super important!
+            }
+            q = c.course.create_quiz(quiz=quizdef)
+
+            #can also add quiz payload here in form of pdf or whatever here
+
+            # now we can publish
+            q.edit(quiz={"published":True})
+
+            # create assignment override to set due and unlock dates and the target students
+            quizass = c.course.get_assignment(q.assignment_id)
+            overridedef = {
+                "student_ids":groups[j-1],
+                "title":'Group {}'.format(j),
+                "due_at": duedate.strftime("%Y-%m-%dT%H:%M:%SZ"), #must be UTC
+                "unlock_at": unlockat.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            quizass.create_override(assignment_override=overridedef)
+
+
+Uploading Qualtrics Results to Google Drive
+----------------------------------------------
+
+When I use the self-grading approach enabled by :py:meth:`~.cornellGrading.setupPrivateHW` and :py:meth:`~.cornellGrading.selfGradingImport`, I like to assign one of my TAs or graders to do spot checks of students' self-assessments (note that it is equally important to look for students who are consistently undervaluing their work as those who are overvaluing their work). The grader obviously needs to see both the assignment submissions (available via Canvas SpeedGrader) as well as the individual question self-assessments.  For the latter, I'd originally implemented the ``sharewith`` keyword for :py:meth:`~.cornellGrading.setupPrivateHW`, but using the Qualtrics web interface to do these spot checks proved to be overly tedious.  However, in the process of calculating scores and uploading them to Canvas, :py:meth:`~.cornellGrading.selfGradingImport` pulls down a full spreadsheet of all user submissions.  If we can automatically upload this to a shared Google Drive folder, that will make everyone's life much easier. Ok. Let's play the how many APIs can we tie together game?
+
+The basics of Google Python API usage are given here: https://developers.google.com/drive/api/v3/quickstart/python. You need the ``google-api-python-client``, ``google-auth-httplib2``, and ``google-auth-oauthlib`` packages.  Then you create a project and enable the relevant API, as described here: https://developers.google.com/workspace/guides/create-project.  In particular, we're going to be using the Google Drive API Scopes: ``.../auth/drive.file`` and ``.../auth/drive.metadata``.  These will require you to create credentials and configure your OAuth consent screen, as described here: https://developers.google.com/workspace/guides/create-credentials.  Create desktop application credentials and download the resulting JSON file. Note that while the documentation is ambiguous on this, you will need to add your own google account as a test user.
+
+In addition to the credentials file, you'll need to create a token, which can similarly be saved to disk so that you only have to do the Google OAuth procedure once.  Here's sample code, mostly based on the quickstart example (https://developers.google.com/drive/api/v3/quickstart/python):
+
+    .. code-block:: python
+
+        import os.path
+        from googleapiclient.discovery import build
+        from google_auth_oauthlib.flow import InstalledAppFlow
+        from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.http import MediaFileUpload
+
+        SCOPES = ['https://www.googleapis.com/auth/drive.file',
+                  'https://www.googleapis.com/auth/drive.metadata']
+
+        credfile = os.path.join(os.environ['HOME'], 'Downloads', 'credentials.json')
+        tokenfile = os.path.join(os.environ['HOME'], 'Downloads', 'token.json')
+
+        creds = None
+        if os.path.exists(tokenfile):
+            creds = Credentials.from_authorized_user_file(tokenfile, SCOPES)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    credfile, SCOPES)
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open(tokenfile, 'w') as token:
+                token.write(creds.to_json())
+
+        service = build('drive', 'v3', credentials=creds)
+
+Note that the token file is specific to the scopes in use.  If you change scopes, you have to recreate the token from scratch.  With this setup complete, all we need to do is find the folder we're want to put things in, and then grab and upload our spreadsheet.  The following assumes that the folder is uniquely named in your Drive:
+
+
+    .. code-block:: python
+
+        from cornellGrading import cornellGrading
+        c = cornellGrading()
+        coursenum = ...
+        c.getCourse(coursenum)
+        c.setupQualtrics()
+        hwnum = ...
+        res = c.selfGradingImport(hwnum, checkLate=True)
+
+        #find the Google Drive folder
+        tmp = service.files().list(q="name = 'Folder Name Goes Here'", spaces='drive',
+                                   fields='nextPageToken, files(id, name)',
+                                   pageToken=None).execute()
+        folderid = tmp['files'][0]['id']
+
+        #upload the file
+        media = MediaFileUpload(res[-1], resumable=True)
+        file = service.files().create(body={'name':'HW{} Self Assessments.csv'.format(hwnum),
+                                            'parents':[folderid]},
+                                      media_body=media, fields='id').execute()
+
+And Bob's your uncle. 

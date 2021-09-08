@@ -12,6 +12,14 @@ cornellGrading.cornellGrading module
    :undoc-members:
    :show-inheritance:
 
+cornellGrading.cornellInterface module
+--------------------------------------
+
+.. automodule:: cornellGrading.cornellInterface
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 cornellGrading.cornellQualtrics module
 --------------------------------------
 
@@ -20,10 +28,26 @@ cornellGrading.cornellQualtrics module
    :undoc-members:
    :show-inheritance:
 
-cornellGrading.cornellInterface module
+cornellGrading.dueDatesFromCSV module
+-------------------------------------
+
+.. automodule:: cornellGrading.dueDatesFromCSV
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+cornellGrading.pandocHTMLParser module
 --------------------------------------
 
-.. automodule:: cornellGrading.cornellInterface
+.. automodule:: cornellGrading.pandocHTMLParser
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+cornellGrading.upload\_MC\_questions module
+-------------------------------------------
+
+.. automodule:: cornellGrading.upload_MC_questions
    :members:
    :undoc-members:
    :show-inheritance:

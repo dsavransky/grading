@@ -1554,10 +1554,13 @@ class cornellGrading:
                 Don't upload if True (defaults False)
         Returns:
             tuple:
-                netids (str array)
+                netids (str array):
                     Student netids
-                scores (float array)
+                scores (float array):
                     Student scores
+                surveyfile (str):
+                    Full path to survey download
+
 
         Notes:
             To whitelist late submissions, in Canvas gradebook, click on the submission,
@@ -1578,10 +1581,10 @@ class cornellGrading:
 
         if ":" in surveyname:
             surveyname = surveyname.replace(":", "_")
-        tmpfile = os.path.join(tmpdir, surveyname + ".csv")
-        assert os.path.isfile(tmpfile), "Survey results not where expected."
+        surveyfile = os.path.join(tmpdir, surveyname + ".csv")
+        assert os.path.isfile(surveyfile), "Survey results not where expected."
 
-        qualtrics = pandas.read_csv(tmpfile, header=[0, 1, 2])
+        qualtrics = pandas.read_csv(surveyfile, header=[0, 1, 2])
         # find netid and question cols in Qualtrics
         qnetidcol = qualtrics.columns.get_level_values(0)[
             np.array(
@@ -1660,12 +1663,12 @@ class cornellGrading:
                     if np.isnan(subtimes[subnetids == i][0]):
                         scores[j] = 0
                     else:
-                        # if late but within 3 days, take away 25% of the totscore
+                        # if late take away 25% of the totscore
                         if (subtimes[subnetids == i][0] < -5 * 60.0) and lates[
                             subnetids == i
                         ][0]:
                             scores[j] -= totscore * latePenalty
-                        # if more than 3 days, they get NOTHING
+                        # if more than maxDaysLate, you get NOTHING! good day, sir!
                         if (
                             subtimes[subnetids == i][0]
                             < -5 * 60.0 - maxDaysLate * 86400.0
@@ -1676,7 +1679,7 @@ class cornellGrading:
         if not (noUpload):
             self.uploadScores(hw, qnetids, scores)
 
-        return qnetids, scores
+        return qnetids, scores, surveyfile
 
     def getGroups(self, outfile=None):
         """Create a csv file of group membership

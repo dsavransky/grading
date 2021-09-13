@@ -1252,7 +1252,8 @@ class cornellGrading:
                 # for every equation image with a label, find it, and replace with a
                 # span with an equation number
                 imtag = re.search(
-                    r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
+                    # r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
+                    r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                         enclabel
                     ),
                     out,
@@ -1269,7 +1270,7 @@ class cornellGrading:
 
                 # if encoded or unencoded label in string, kill them
                 out = out.replace(labelstr, "")
-                out = out.replace(urllib.parse.quote(urllib.parse.quote(labelstr)), "")
+                out = out.replace(enclabel, "")
 
                 # replace instances of [label] with eq num
                 out = out.replace("[{}]".format(label), "{}".format(eqnum))

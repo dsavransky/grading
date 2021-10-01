@@ -657,7 +657,7 @@ class cornellGrading:
         print("Done.")
 
     def waitForSubmit(self, res):
-        """ Wait for async result object to finish """
+        """Wait for async result object to finish"""
         while res.query().workflow_state != "completed":
             time.sleep(0.5)
 
@@ -1253,7 +1253,8 @@ class cornellGrading:
                 # span with an equation number
                 imtag = re.search(
                     # r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
-                    r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    # r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                         enclabel
                     ),
                     out,

@@ -133,6 +133,9 @@ class cornellGrading:
                     isstudent = e["role"] == "StudentEnrollment"
 
             if isstudent:
+                if not hasattr(t, 'login_id'):
+                    print(f'Warning: Skipping {t.sortable_name}: is in the course, but not enrolled.')
+                    continue
                 names.append(t.sortable_name)
                 ids.append(t.id)
                 netids.append(t.login_id)

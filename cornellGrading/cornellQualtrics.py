@@ -6,6 +6,7 @@ import tempfile
 import io
 import os
 from datetime import datetime
+import numpy as np
 
 
 class cornellQualtrics:
@@ -67,16 +68,14 @@ class cornellQualtrics:
             self.apiToken = apiToken
             self.setupHeaders()
 
-            res = self.listSurveys()
-            assert res.status_code == 200, "Connection error."
+            self.listSurveys()
             keyring.set_password("qualtrics_token", "cornell.ca1", apiToken)
             print("Connected to Qualtrics. Token Saved")
         else:
             self.apiToken = apiToken
             self.setupHeaders()
 
-            res = self.listSurveys()
-            assert res.status_code == 200, "Connection error."
+            self.listSurveys()
             print("Connected to Qualtrics.")
 
     def setupHeaders(self):
@@ -104,47 +103,69 @@ class cornellQualtrics:
             "x-api-token": self.apiToken,
         }
 
-    def listSurveys(self):
-        """Grab all available Qualtrics surveys
+    def listSurveys(self, baseUrl=None):
+        """Grab and store all available Qualtrics surveys
 
         Args:
             None
 
         Returns:
-            requests.models.Response:
-                The response object with the surveys.
+            tuple:
+                surveynames (list)
+                surveyids (list)
 
         """
 
-        baseUrl = "https://{0}{1}surveys".format(self.dataCenter, self.qualtricsapi)
+        if baseUrl is None:
+            baseUrl = "https://{0}{1}surveys".format(self.dataCenter, self.qualtricsapi)
+
+        # get surveys
         response = requests.get(baseUrl, headers=self.headers_tokenOnly)
 
-        return response
+        assert response.status_code == 200, "Connection error."
 
-    def getSurveyNames(self):
+        # extract all survey names/ids
+        surveynames = []
+        surveyids = []
+        for el in response.json()["result"]["elements"]:
+            surveynames.append(el["name"])
+            surveyids.append(el["id"])
+
+        if response.json()["result"]["nextPage"]:
+            tmpn, tmpi = self.listSurveys(baseUrl=response.json()["result"]["nextPage"])
+            surveynames += tmpn
+            surveyids += tmpi
+
+        self.surveyNames = np.array(surveynames)
+        self.surveyIds = np.array(surveyids)
+
+        return surveynames, surveyids
+
+    def getSurveyNames(self, renew=False):
         """Return a list of all current survey names.
 
         Args:
-            None
+            renew (bool):
+                Renew stored list of surveys (default False)
 
         Returns:
             list:
                 All survey names
 
         """
-        res = self.listSurveys()
-        surveynames = []
-        for el in res.json()["result"]["elements"]:
-            surveynames.append(el["name"])
+        if renew:
+            self.listSurveys()
 
-        return surveynames
+        return self.surveyNames
 
-    def getSurveyId(self, surveyname):
+    def getSurveyId(self, surveyname, renew=False):
         """Find qualtrics survey id by name.  Matching is exact.
 
         Args:
             surveyname (str):
                 Exact text of survey name
+            renew (bool):
+                Renew stored list of surveys (default False)
 
         Returns:
             str:
@@ -152,15 +173,12 @@ class cornellQualtrics:
 
         """
 
-        res = self.listSurveys()
-        surveyid = None
-        for el in res.json()["result"]["elements"]:
-            if el["name"] == surveyname:
-                surveyid = el["id"]
-                break
-        assert surveyid, "Couldn't find survey for this assignment."
+        if renew:
+            self.listSurveys()
 
-        return surveyid
+        assert surveyname in self.surveyNames, "Couldn't find this survey."
+
+        return self.surveyIds[self.surveyNames == surveyname][0]
 
     def getSurveyQuestions(self, surveyId):
         """Grab all available survey questions
@@ -451,6 +469,14 @@ class cornellQualtrics:
             data=downloadRequestPayload,
             headers=self.headers_post,
         )
+        if downloadRequestResponse.status_code == 500:
+            downloadRequestResponse = requests.request(
+                "POST",
+                downloadRequestUrl,
+                data=downloadRequestPayload,
+                headers=self.headers_post,
+            )
+
         progressId = downloadRequestResponse.json()["result"]["progressId"]
         # print(downloadRequestResponse.text)
         print("Qualtrics download started.")

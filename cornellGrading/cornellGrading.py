@@ -133,8 +133,10 @@ class cornellGrading:
                     isstudent = e["role"] == "StudentEnrollment"
 
             if isstudent:
-                if not hasattr(t, 'login_id'):
-                    print(f'Warning: Skipping {t.sortable_name}: is in the course, but not enrolled.')
+                if not hasattr(t, "login_id"):
+                    print(
+                        f"Warning: Skipping {t.sortable_name}: is in the course, but not enrolled."
+                    )
                     continue
                 names.append(t.sortable_name)
                 ids.append(t.id)
@@ -1843,7 +1845,7 @@ class cornellGrading:
 
         return md
 
-    def add2module(self, module, title, object):
+    def add2module(self, module, title, object, indent=0):
         """Adds an object to a module
 
         Args:
@@ -1855,14 +1857,13 @@ class cornellGrading:
                 The object to be added to the module. Tested with Page and Assignment
                 so far. Type should be one of [File, Page, Discussion, Assignment, Quiz,
                 SubHeader, ExternalUrl, ExternalTool].
+            indent (int):
+                Item indent level (defaults to zero)
         """
 
         obj_type = type(object).__name__
 
-        item = {
-            "title": title,
-            "type": obj_type,
-        }
+        item = {"title": title, "type": obj_type, "indent": int(indent)}
         if obj_type == "Page":
             item["page_url"] = object.url
         else:

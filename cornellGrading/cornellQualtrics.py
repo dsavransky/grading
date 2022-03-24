@@ -7,6 +7,7 @@ import io
 import os
 from datetime import datetime
 import numpy as np
+import pandas
 
 
 class cornellQualtrics:
@@ -311,6 +312,47 @@ class cornellQualtrics:
 
         return response
 
+    def dumpContacts(self, mailingListId):
+        """Repackage all contacts in a mailing list into a pandas DataFrame
+
+        Args:
+            mailingListId (str):
+                Unique id string of mailing lists.  Get either from we interface or via
+                getMailingListId
+
+        Returns:
+            pandas.DataFrame:
+                dataframe with all mailing list contacts
+
+        Notes:
+
+
+        """
+
+        contacts = self.getListContacts(mailingListId).json()["result"]["elements"]
+
+        fn = []
+        ln = []
+        email = []
+        cid = []
+
+        for el in contacts:
+            fn.append(el["firstName"])
+            ln.append(el["lastName"])
+            cid.append(el["id"])
+            email.append(el["email"])
+
+        contacts = pandas.DataFrame(
+            {
+                "First": fn,
+                "Last": ln,
+                "Email": email,
+                "contactId": cid,
+            }
+        )
+
+        return contacts
+
     def addListContact(self, mailingListId, firstName, lastName, email):
         """Add a contact to a mailing list
 
@@ -420,6 +462,91 @@ class cornellQualtrics:
         response2 = requests.get(baseUrl2, headers=self.headers_tokenOnly)
 
         return response2.json()["result"]["elements"]
+
+    def createSingleContactDistribution(
+        self, surveyId, mailingListId, contactId, subject
+    ):
+        """Create a survey distribution for the given mailing list
+
+        Args:
+            surveyId (str):
+                Unique id string of survey.  Get either from web interface or via
+                getSurveyId
+            mailingListId (str):
+                Unique id string of mailing lists.  Get either from we interface or via
+                getMailingListId
+            contactId (str):
+                Unique id string of contact.  Get either from we interface or via
+                getMailingList
+            subject (str):
+                Subject line
+
+        Returns:
+            str:
+                distribution id
+        Notes:
+
+
+        """
+
+        baseUrl = "https://{0}{1}distributions".format(
+            self.dataCenter, self.qualtricsapi
+        )
+
+        msg = (
+            """<p>Please complete this survey no later than:</p>\n\n<p>"""
+            + """<strong>Follow this link to the Survey: </strong><br />\n"""
+            + """${l://SurveyLink?d=Take the Survey}</p>\n\n"""
+            + """<p>Or copy and paste the URL below into your internet browser:"""
+            + """<br />\n${l://SurveyURL}</p>"""
+        )
+
+        data = {
+            "message": {"messageText": msg},
+            "recipients": {
+                "mailingListId": mailingListId,
+                "contactId": contactId,
+            },
+            "header": {
+                "fromEmail": "invitation@surveys.mail.cornell.edu",
+                "replyToEmail": "asdf@cornell.edu",
+                "fromName": "MAE GFA Office",
+                "subject": subject,
+            },
+            "surveyLink": {"surveyId": surveyId, "type": "Individual"},
+            "sendDate": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        }
+
+        response = requests.post(baseUrl, json=data, headers=self.headers_post)
+        assert response.status_code == 200
+
+        return response.json()["result"]["id"]
+
+    def listDistributions(self, surveyId):
+        """Get all survey distribution ids for the given survey ID
+
+        Args:
+            surveyId (str):
+                Unique id string of survey.  Get either from web interface or via
+                getSurveyId
+
+        Returns:
+            list:
+                Dicts containing distributions
+
+        Notes:
+
+
+        """
+
+        baseUrl = "https://{0}{1}distributions?surveyId={2}".format(
+            self.dataCenter, self.qualtricsapi, surveyId
+        )
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200
+
+        return response.json()["result"]["elements"]
 
     def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true"):
         """Download and extract survey results
@@ -640,6 +767,28 @@ class cornellQualtrics:
 
         return response.json()["result"]
 
+    def deleteSurvey(self, surveyId):
+        """Delete a Survey
+
+        Args:
+            surveyId (str):
+                Survey ID string as returned by getSurveyId
+
+        Returns:
+            None
+
+        """
+
+        baseUrl = "https://{0}{2}survey-definitions/{1}".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
+
+        response = requests.delete(baseUrl, headers=self.headers_tokenOnly)
+
+        assert response.status_code == 200, "Could not delete surveyId: {}".format(
+            surveyId
+        )
+
     def publishSurvey(self, surveyId):
         """Publish a Survey
 
@@ -697,14 +846,52 @@ class cornellQualtrics:
 
         """
 
+        data = self.getSurveyOptions(surveyId)
+        data["SurveyProtection"] = "ByInvitation"
+
+        baseUrl = "https://{0}{2}survey-definitions/{1}/options".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
+
+        response = requests.put(baseUrl, json=data, headers=self.headers_post)
+        assert response.status_code == 200, "Could not update options."
+
+    def getSurveyOptions(self, surveyId):
+        """Return survey options
+
+        Args:
+            surveyId (str):
+                Survey ID string as returned by getSurveyId
+
+        Returns:
+            dict:
+                Survey options data
+
+        """
+
         baseUrl = "https://{0}{2}survey-definitions/{1}/options".format(
             self.dataCenter, surveyId, self.qualtricsapi
         )
         response = requests.get(baseUrl, headers=self.headers_tokenOnly)
-        assert response.status_code == 200, "Could not query options."
 
-        data = response.json()["result"]
-        data["SurveyProtection"] = "ByInvitation"
+        return response.json()["result"]
+
+    def updateSurveyOptions(self, surveyId, data):
+        """Return survey options
+
+        Args:
+            surveyId (str):
+                Survey ID string as returned by getSurveyId
+            data (dict):
+                Dictionary of options (as returned by getSurveyData)
+
+        Returns:
+            None
+
+        """
+        baseUrl = "https://{0}{2}survey-definitions/{1}/options".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
 
         response = requests.put(baseUrl, json=data, headers=self.headers_post)
         assert response.status_code == 200, "Could not update options."
@@ -847,3 +1034,100 @@ class cornellQualtrics:
         assert response.status_code == 200, "Couldn't add quota."
 
         return response.json()["result"]["QuotaID"]
+
+    def listLibraries(self):
+        """List all libraries
+
+        Args:
+            None
+
+        Returns:
+            dict:
+                Dictionary of survey (response.json()['result'])
+
+        """
+
+        baseUrl = "https://{0}{1}libraries".format(self.dataCenter, self.qualtricsapi)
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200, "Could not get libraries."
+
+        return response.json()["result"]
+
+    def listLibraryMessages(self, libraryId):
+        """list messages in a library
+
+        Args:
+            libraryId (str):
+                Library ID string
+
+        Returns:
+            list:
+                message dictionaries
+
+        """
+        baseUrl = "https://{0}{2}libraries/{1}/messages".format(
+            self.dataCenter, libraryId, self.qualtricsapi
+        )
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200, "Couldn't get messages"
+
+        return response.json()["result"]["elements"]
+
+    def getLibraryMessage(self, libraryId, messageId):
+        """get message from a library
+
+        Args:
+            libraryId (str):
+                Library ID string
+            messageId (str):
+                Message ID string
+
+        Returns:
+            list:
+                message dictionaries
+
+        """
+        baseUrl = "https://{0}{2}libraries/{1}/messages/{3}".format(
+            self.dataCenter, libraryId, self.qualtricsapi, messageId
+        )
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200, "Couldn't get messages"
+
+        return response.json()["result"]["elements"]
+
+    def createLibraryMessage(self, libraryId, subject, msg, category="thankYou"):
+        """Create message in a library
+
+        Args:
+            libraryId (str):
+                Library ID string
+            subject (str):
+                Message description
+            msg (str):
+                Message text
+            category (str):
+                Message category: invite, inactiveSurvey, reminder, thankYou,
+                endOfSurvey, general, validation, lookAndFeel, emailSubject, smsInvite
+
+        Returns:
+            str:
+                message id
+
+        """
+        baseUrl = "https://{0}{2}libraries/{1}/messages".format(
+            self.dataCenter, libraryId, self.qualtricsapi
+        )
+
+        data = {
+            "description": subject,
+            "category": category,
+            "messages": {"en": msg},
+        }
+
+        response = requests.post(baseUrl, json=data, headers=self.headers_post)
+        assert response.status_code == 200, "Couldn't create message."
+
+        return response.json()["result"]["id"]

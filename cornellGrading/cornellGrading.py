@@ -1227,14 +1227,16 @@ class cornellGrading:
 
                 while parser.imagesUploaded:
                     imup = parser.imagesUploaded.pop()
-                    figcap = parser.figcaptions.pop()
                     canvasimurl = (
                         r'src="https://canvas.cornell.edu{0}/preview" '
                         r'data-api-endpoint="https://canvas.cornell.edu/api/'
                         r'v1{0}" data-api-returntype="File" '.format(imup["url"])
                     )
                     tmp = re.sub(r'src="{0}"'.format(imup["orig"]), canvasimurl, tmp)
-                    tmp = re.sub(r'alt=""', r'alt="{0}"'.format(figcap), tmp)
+
+                    if parser.figcaptions:
+                        figcap = parser.figcaptions.pop()
+                        tmp = re.sub(r'alt=""', r'alt="{0}"'.format(figcap), tmp)
 
                 if parser.spanDefs:
                     for cl, val in parser.spanDefs.items():

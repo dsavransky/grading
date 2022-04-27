@@ -464,7 +464,13 @@ class cornellQualtrics:
         return response2.json()["result"]["elements"]
 
     def createSingleContactDistribution(
-        self, surveyId, mailingListId, contactId, subject
+        self,
+        surveyId,
+        mailingListId,
+        contactId,
+        subject,
+        cmsg="",
+        replyTo="no-reply@cornell.edu",
     ):
         """Create a survey distribution for the given mailing list
 
@@ -480,6 +486,10 @@ class cornellQualtrics:
                 getMailingList
             subject (str):
                 Subject line
+            cmsg (str):
+                Custom message to add to standard email
+            replyTo (str):
+                Reply-to address
 
         Returns:
             str:
@@ -494,8 +504,8 @@ class cornellQualtrics:
         )
 
         msg = (
-            """<p>Please complete this survey no later than:</p>\n\n<p>"""
-            + """<strong>Follow this link to the Survey: </strong><br />\n"""
+            """<p>{}</p>\n\n""".format(cmsg)
+            + """<p><strong>Follow this link to the Survey: </strong><br />\n"""
             + """${l://SurveyLink?d=Take the Survey}</p>\n\n"""
             + """<p>Or copy and paste the URL below into your internet browser:"""
             + """<br />\n${l://SurveyURL}</p>"""
@@ -509,8 +519,8 @@ class cornellQualtrics:
             },
             "header": {
                 "fromEmail": "invitation@surveys.mail.cornell.edu",
-                "replyToEmail": "asdf@cornell.edu",
-                "fromName": "MAE GFA Office",
+                "replyToEmail": replyTo,
+                "fromName": "A Survey Robot",
                 "subject": subject,
             },
             "surveyLink": {"surveyId": surveyId, "type": "Individual"},

@@ -463,6 +463,35 @@ class cornellQualtrics:
 
         return response2.json()["result"]["elements"]
 
+    def getDistributionLinks(self, distributionId, surveyId):
+        """Retrieve distribution info
+
+        Args:
+            distributionId (str):
+                Unique id string of distribution.
+            surveyId (str):
+                Unique id string of survey.
+
+        Returns:
+            list:
+                dicts of surveylinks for all members of original contact list used
+
+        Notes:
+            Only the links of those people actually included in the distribution will
+            be real
+
+
+        """
+
+        baseUrl = "https://{0}{1}distributions/{2}/links?surveyId={3}".format(
+            self.dataCenter, self.qualtricsapi, distributionId, surveyId
+        )
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200
+
+        return response.json()["result"]["elements"]
+
     def createSingleContactDistribution(
         self,
         surveyId,
@@ -531,6 +560,62 @@ class cornellQualtrics:
         assert response.status_code == 200
 
         return response.json()["result"]["id"]
+
+    def createReminderDistribution(
+        self,
+        distributionId,
+        libraryId,
+        messageId,
+        subject,
+        sendDate,
+        replyTo="no-reply@cornell.edu",
+        fromName="A Survey Robot",
+    ):
+        """Create a survey reminder distribution
+
+        Args:
+            distributionId (str):
+                Unique id string of existing distribution
+            libraryId (str):
+                Unique id string of library
+            messageId (str):
+                Unique id string of reminder message
+            subject (str):
+                Subject line
+            sendDate (datetime.datetime):
+                Send date
+            replyTo (str):
+                Reply-to address
+            fromName (str):
+                From string
+
+        Returns:
+            str:
+                distribution id
+        Notes:
+
+
+        """
+
+        baseUrl = "https://{0}{1}distributions/{2}/reminders".format(
+            self.dataCenter, self.qualtricsapi, distributionId
+        )
+
+        data = {
+            "message": {"libraryId": libraryId, "messageId": messageId},
+            "header": {
+                "fromEmail": "invitation@surveys.mail.cornell.edu",
+                "replyToEmail": replyTo,
+                "fromName": fromName,
+                "subject": subject,
+            },
+            "sendDate": sendDate.replace(tzinfo=None).isoformat() + "Z",
+        }
+
+        response = requests.post(baseUrl, json=data, headers=self.headers_post)
+        assert response.status_code == 200
+
+        return response.json()["result"]["distributionId"]
 
     def listDistributions(self, surveyId):
         """Get all survey distribution ids for the given survey ID

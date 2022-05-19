@@ -1542,6 +1542,7 @@ class cornellGrading:
         latePenalty=0.25,
         maxDaysLate=3,
         noUpload=False,
+        saveDir=None,
     ):
         """Qualtrics self-grading survey import.
 
@@ -1561,6 +1562,9 @@ class cornellGrading:
                 After this number of days past deadline, HW gets zero. Defaults to 3.
             noUpload (bool):
                 Don't upload if True (defaults False)
+            saveDir (str):
+                Save path for raw survey output.  Defaults to None (in which case it
+                goes to the system tmp dir)
         Returns:
             tuple:
                 netids (str array):
@@ -1586,7 +1590,7 @@ class cornellGrading:
         # grab the survey
         surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
         surveyId = self.qualtrics.getSurveyId(surveyname)
-        tmpdir = self.qualtrics.exportSurvey(surveyId)
+        tmpdir = self.qualtrics.exportSurvey(surveyId, saveDir=saveDir)
 
         if ":" in surveyname:
             surveyname = surveyname.replace(":", "_")

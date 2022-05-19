@@ -643,7 +643,7 @@ class cornellQualtrics:
 
         return response.json()["result"]["elements"]
 
-    def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true"):
+    def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true", saveDir=None):
         """Download and extract survey results
 
         Args:
@@ -651,19 +651,21 @@ class cornellQualtrics:
                 Unique id string of survey.  Get either from web interface or via
                 getSurveyId
             fileFormat (str):
-                Format to download (must be csv, tsv, or spss
+                Format to download (must be csv, tsv, or spss)
+            useLabels (str):
+                Use choice labels ("true" or "false", defaults "true")
+            saveDir (str):
+                Full path to save location.  If None (default) uses system tmp dir
 
         Returns:
             str:
-                Full path to temp directory where unzipped file will be.  Filename
-                should be the same as
-                the survey name.
+                Full path to directory where unzipped file will be.  Filename
+                should be the same as the survey name except with any colons replaced
+                with underscores
 
         Notes:
             Adapted from
             https://api.qualtrics.com/docs/getting-survey-responses-via-the-new-export-apis
-            "useLabels":true is hardcoded (returns label values instead of choice
-            indices. Change if you don't want that.
 
 
         """
@@ -730,10 +732,11 @@ class cornellQualtrics:
         )
 
         # Step 4: Unzipping the file
-        tmpdir = os.path.join(tempfile.gettempdir(), surveyId)
-        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall(tmpdir)
+        if saveDir is None:
+            saveDir = os.path.join(tempfile.gettempdir(), surveyId)
+        zipfile.ZipFile(io.BytesIO(requestDownload.content)).extractall(saveDir)
 
-        return tmpdir
+        return saveDir
 
     def createSurvey(self, surveyname):
         """Create a new survey

@@ -280,6 +280,55 @@ A colleague wanted to give two different assignments to two sub-sections of thei
             }
             quizass.create_override(assignment_override=overridedef)
 
+Managing Multiple Sections
+----------------------------
+
+As an alternative to the override-based strategy described above, assignments can be deployed in different ways (i.e., different due dates, or different assignment contents) to various subsections of a class by maintaining multiple course sections.  Once again, for a large course, this is quite annoying to maintain via the web interface, but setting up a section with a specific set of students is very straightforward:
+
+    .. code-block:: python
+
+        from cornellGrading import cornellGrading
+
+        c = cornellGrading()
+        coursenum = ...  # change to your actual number
+        c.getCourse(coursenum)
+
+        # create a new section called "Test Section 1"
+        sec = c.course.create_course_section(course_section={"name": "Test Section 1"})
+
+        # create array of userids to add to section.  
+        # for example, to add everyone in the course:
+        uids = c.ids
+
+        for u in uids:
+            sec.enroll_user(u)
+
+Sections can also be deleted by executing ``sec.delete()`` on any section object ``sec``.  To remove a student from a section:
+
+    .. code-block:: python
+
+        uid = ... #user id of student to remove
+
+        # get all enrollments in section
+        enrollments = sec.get_enrollments()
+
+        # iterate through enrollments to find student to delete
+        for en in enrollments:
+            if en.user['id'] == uid:
+                en.deactivate("delete")
+
+To get the object for a specific section:
+
+    .. code-block:: python
+
+        secname = "Test Section 1"
+        secs = c.course.get_sections()
+
+        for sec in secs:
+            if sec.name ==  secname:
+                break
+        assert secname == sec.name
+
 
 Uploading Qualtrics Results to Google Drive
 ----------------------------------------------

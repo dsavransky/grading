@@ -135,7 +135,10 @@ class cornellGrading:
             if isstudent:
                 if not hasattr(t, "login_id"):
                     print(
-                        f"Warning: Skipping {t.sortable_name}: is in the course, but not enrolled."
+                        (
+                            f"Warning: Skipping {t.sortable_name}: "
+                            "is in the course, but not enrolled."
+                        )
                     )
                     continue
                 names.append(t.sortable_name)
@@ -431,8 +434,52 @@ class cornellGrading:
 
         return res
 
+    def listPages(self):
+        """List all pages in course
+
+        Args:
+            None
+
+        Returns:
+            list:
+                list of strings containing page titles
+
+        """
+
+        pgs = self.course.get_pages()
+
+        pages = []
+        for pg in pgs:
+            pages.append(pg.title)
+
+        return pages
+
+    def getPage(self, title):
+        """Locate page by title
+
+        Args:
+            title (str):
+                Title of page to return.  Must be exact match.
+
+        Returns:
+            canvasapi.module.Module:
+                The page object
+
+        """
+
+        tmp = self.course.get_pages()
+        pg = None
+        for t in tmp:
+            if t.title == title:
+                pg = t
+                break
+
+        assert pg is not None, f"Could not find a page with title {title}."
+
+        return pg
+
     def createPage(self, title, body, editing_roles="teachers", published=False):
-        """Create an assignment
+        """Create a Page
 
         Args:
             title (str):
@@ -1851,7 +1898,7 @@ class cornellGrading:
 
         return md
 
-    def add2module(self, module, title, object, indent=0):
+    def add2module(self, module, title, obj, indent=0, position=None):
         """Adds an object to a module
 
         Args:
@@ -1859,20 +1906,52 @@ class cornellGrading:
                 The module to add the item to
             title (str):
                 Title of the module item
-            object (canvasapi.CanvasObject):
+            obj (canvasapi.CanvasObject):
                 The object to be added to the module. Tested with Page and Assignment
                 so far. Type should be one of [File, Page, Discussion, Assignment, Quiz,
                 SubHeader, ExternalUrl, ExternalTool].
             indent (int):
                 Item indent level (defaults to zero)
+            position (str, int, or None):
+                If None (default) add new item in the module's default position
+                (typically at the bottom, but, confusingly, sometimes at the top). If
+                a string, must be either 'top' or 'bottom' (case-isensitive). If int,
+                this is interpreted as the desired position.
+
         """
 
-        obj_type = type(object).__name__
+        obj_type = type(obj).__name__
 
         item = {"title": title, "type": obj_type, "indent": int(indent)}
         if obj_type == "Page":
-            item["page_url"] = object.url
+            item["page_url"] = obj.url
         else:
-            item["content_id"] = str(object.id)
+            item["content_id"] = str(obj.id)
+
+        if position is not None:
+            assert isinstance(
+                position, (str, int, float)
+            ), "position input may only be a str or an int"
+            if isinstance(position, str):
+                assert position.lower() in [
+                    "top",
+                    "bottom",
+                ], "position strings must be either 'top' or 'bottom'"
+
+                if position.lower() == "bottom":
+                    # module may have been updated, so let's find the true largest
+                    # position
+                    maxpos = 0
+                    for mi in module.get_module_items():
+                        if mi.position > maxpos:
+                            maxpos = mi.position
+
+                    position = maxpos + 1
+                else:
+                    position = 0
+            else:
+                position = int(position)
+
+            item["position"] = position
 
         module.create_module_item(item)

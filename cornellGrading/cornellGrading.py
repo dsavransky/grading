@@ -1898,7 +1898,7 @@ class cornellGrading:
 
         return md
 
-    def add2module(self, module, title, obj, indent=0, position=None):
+    def add2module(self, module, title, obj, indent=0, position="bottom"):
         """Adds an object to a module
 
         Args:
@@ -1913,10 +1913,10 @@ class cornellGrading:
             indent (int):
                 Item indent level (defaults to zero)
             position (str, int, or None):
-                If None (default) add new item in the module's default position
+                If None, add new item in the module's default position
                 (typically at the bottom, but, confusingly, sometimes at the top). If
                 a string, must be either 'top' or 'bottom' (case-isensitive). If int,
-                this is interpreted as the desired position.
+                this is interpreted as the desired position. Defaults to 'bottom'.
 
         """
 
@@ -1948,7 +1948,13 @@ class cornellGrading:
 
                     position = maxpos + 1
                 else:
-                    position = 0
+                    minpos = 999999
+                    for mi in module.get_module_items():
+                        if mi.position < minpos:
+                            minpos = mi.position
+
+                    position = minpos
+
             else:
                 position = int(position)
 

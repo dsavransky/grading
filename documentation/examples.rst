@@ -397,3 +397,62 @@ Note that the token file is specific to the scopes in use.  If you change scopes
                                       media_body=media, fields='id').execute()
 
 And Bob's your uncle. 
+
+Repeated Assignments
+-----------------------
+
+Let's say you have an assignment that you wish to deploy to students multiple times.  For example, you might wish to have weekly self-reflections or progress reports that can be collected via a Canvas quiz.  Here's an easy way of setting this up.
+
+.. note::
+    
+   ``canvasapi`` does not yet have endpoint coverage for the 'Duplicate Assignment' action, so this code partially patches that functionality.  The full endpoint coverage is expected to become part of the upstream code in a future release, at which point this code will be greatly simplified. 
+
+First, create the assignment you wish to clone, using either the API or the web interface.  If using a Quiz (or New Quiz), build the whole quiz, including all questions. Assign the base assignment to whichever students or section you wish.  For the sake of this example, we will call our base assignment 'Base Assignment'.  
+
+    .. code-block:: python
+
+        from cornellGrading import cornellGrading
+        from canvasapi.assignment import Assignment
+        from datetime import timedelta
+
+        c = cornellGrading()
+        coursenum = ...
+        c.getCourse(coursenum)
+
+        # grab the base assignment and any overrides associated with it:
+        ass = c.getAssignment("Base Assignment")
+        o1 = ass.get_overrides()[0]
+
+        # set the starting point for future due dates:
+        baseduedate = c.localizeTime("2023-10-06")
+
+        # now make as many copies as you wish.  
+        # This is based on a 14 week semester:
+        for j in range(14):
+
+            # duplicate the assignment
+            response = ass._requester.request(
+                "POST",
+                "courses/{}/assignments/{}/duplicate".format(ass.course_id, ass.id),
+            )
+            newass = Assignment(ass._requester, response.json())
+            newass.edit(assignment={"name": f"Weekly Update {j+1}"})
+
+            # compute the new due date (+ j weeks at local noon)
+            newduedate = c.localizeTime(
+                (baseduedate + timedelta(days=7 * j)).strftime("%Y-%m-%d"),
+                duetime="12:00:00",
+            )
+
+            # finally create an override for the assignment copy 
+            # this example unlocks the assignment one week prior to the due date
+            overridedef = {
+                "course_section_id": o1.course_section_id,
+                "title": "espresso",
+                "due_at": newduedate.strftime("%Y-%m-%dT%H:%M:%SZ"),  # must be UTC
+                "unlock_at": (newduedate + timedelta(days=-7)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            newass.create_override(assignment_override=overridedef)
+
+You can also get fancier and use a pre-determined set of due dates instead of a simple weekly scheme - all that you would need to do would be to modify the final for loop to read due dates from a file (or hard-coded array).
+

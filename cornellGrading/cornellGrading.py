@@ -1498,7 +1498,7 @@ class cornellGrading:
         """
 
         # create survey and distribution
-        surveyname = "%s HW%d Self-Grade" % (self.coursename, assignmentNum)
+        surveyname = "%s HW%d Self-Assessment" % (self.coursename, assignmentNum)
         surveyId = self.genPrivateHWSurvey(
             surveyname, nprobs, ecprobs=ecprobs, scoreOptions=scoreOptions
         )
@@ -1512,7 +1512,7 @@ class cornellGrading:
         distnetids = np.array([d["email"].split("@")[0] for d in dist])
 
         # grab the original assignment and all the submissions
-        hwname = "HW%d" % assignmentNum
+        hwname = "Written HW%d" % assignmentNum
         hw = self.getAssignment(hwname)
         subs = hw.get_submissions()
 

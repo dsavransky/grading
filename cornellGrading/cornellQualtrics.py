@@ -461,7 +461,15 @@ class cornellQualtrics:
         )
         response2 = requests.get(baseUrl2, headers=self.headers_tokenOnly)
 
-        return response2.json()["result"]["elements"]
+        out = response2.json()["result"]["elements"]
+
+        while response2.json()["result"]["nextPage"] is not None:
+            response2 = requests.get(
+                response2.json()["result"]["nextPage"], headers=self.headers_tokenOnly
+            )
+            out += response2.json()["result"]["elements"]
+
+        return out
 
     def getDistributionLinks(self, distributionId, surveyId):
         """Retrieve distribution info

@@ -1157,7 +1157,7 @@ class cornellGrading:
         # won't work if we don't have pandoc
         assert shutil.which("pandoc"), (
             "Cannot locate pandoc. Please visit https://pandoc.org/installing.html"
-            "for intallation instructions."
+            "for installation instructions."
         )
 
         # going to assume that the pdf file is located in the working dir with the tex
@@ -1308,7 +1308,8 @@ class cornellGrading:
                 imtag = re.search(
                     # r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
                     # r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                    r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    # r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                         enclabel
                     ),
                     out,

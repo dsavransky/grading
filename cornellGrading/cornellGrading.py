@@ -795,7 +795,7 @@ class cornellGrading:
 
         listids = []
         listemails = []
-        for el in tmp.json()["result"]["elements"]:
+        for el in tmp:
             listids.append(el["id"])
             listemails.append(el["email"])
 

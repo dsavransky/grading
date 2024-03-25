@@ -290,8 +290,8 @@ class cornellQualtrics:
                 getMailingListId
 
         Returns:
-            requests.models.Response:
-                response object with all mailing list contacts
+            list:
+                list of dicts encoding all mailing list contacts
 
         Notes:
 
@@ -310,7 +310,15 @@ class cornellQualtrics:
             response.status_code == 200
         ), "Could not get contacts for list {}.".format(mailingListId)
 
-        return response
+        out = response.json()["result"]["elements"]
+
+        while response.json()["result"]["nextPage"] is not None:
+            response = requests.get(
+                response.json()["result"]["nextPage"], headers=self.headers_tokenOnly
+            )
+            out += response.json()["result"]["elements"]
+
+        return out
 
     def dumpContacts(self, mailingListId):
         """Repackage all contacts in a mailing list into a pandas DataFrame
@@ -329,7 +337,7 @@ class cornellQualtrics:
 
         """
 
-        contacts = self.getListContacts(mailingListId).json()["result"]["elements"]
+        contacts = self.getListContacts(mailingListId)
 
         fn = []
         ln = []

@@ -991,7 +991,7 @@ class cornellQualtrics:
         return response.json()["result"]
 
     def updateSurveyOptions(self, surveyId, data):
-        """Return survey options
+        """Update survey options
 
         Args:
             surveyId (str):

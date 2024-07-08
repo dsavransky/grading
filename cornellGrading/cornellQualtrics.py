@@ -1199,8 +1199,8 @@ class cornellQualtrics:
                 Message ID string
 
         Returns:
-            list:
-                message dictionaries
+            dict:
+                message contents
 
         """
         baseUrl = "https://{0}{2}libraries/{1}/messages/{3}".format(
@@ -1210,7 +1210,7 @@ class cornellQualtrics:
         response = requests.get(baseUrl, headers=self.headers_tokenOnly)
         assert response.status_code == 200, "Couldn't get messages"
 
-        return response.json()["result"]["elements"]
+        return response.json()["result"]
 
     def createLibraryMessage(self, libraryId, subject, msg, category="thankYou"):
         """Create message in a library

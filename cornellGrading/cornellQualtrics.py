@@ -659,6 +659,34 @@ class cornellQualtrics:
 
         return response.json()["result"]["elements"]
 
+    def getDistribution(self, surveyId, distributionId):
+        """Get a distribution
+
+        Args:
+            surveyId (str):
+                Unique id string of survey.  Get either from web interface or via
+                getSurveyId
+            distributionId (str):
+                Unique id string of distribution.
+
+        Returns:
+            dict:
+                Dictionary encoding distribution definition and stats
+
+        Notes:
+            https://api.qualtrics.com/f5b1d8775d803-get-distribution
+
+        """
+
+        baseUrl = "https://{0}{1}distributions/{2}?surveyId={3}".format(
+            self.dataCenter, self.qualtricsapi, distributionId, surveyId
+        )
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200
+
+        return response.json()["result"]
+
     def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true", saveDir=None):
         """Download and extract survey results
 

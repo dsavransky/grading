@@ -53,3 +53,13 @@ def genSemesterCalendar(
     with open(lecture_dates, "w") as f:
         for c in cal:
             f.write("%s\n" % c)
+
+
+def main():
+    genSemesterCalendar(classdays=[0, 2, 4], outfile="lecture_dates_MWF.txt")
+    genSemesterCalendar(classdays=[1, 3], outfile="lecture_dates_TTh.txt")
+    genSemesterCalendar(classdays=[4], outfile="lecture_dates_F.txt")
+
+
+if __name__ == "__main__":
+    main()

@@ -1309,11 +1309,22 @@ class cornellGrading:
                     # r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
                     # r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                     # r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                    r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    #r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    r'(<img class="equation_image"[\s]*src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                         enclabel
                     ),
                     out,
                 )
+                # if imtag is None, try alternate regexp
+                if imtag is None:
+                    imtag = re.search(
+                        r'(<img[\s]*style="vertical-align:middle"[\s]*src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                            enclabel
+                        ),
+                        out,
+                    )
+
+
                 imspan = (
                     r'<span style="margin: 1ex auto; display: table; '
                     r'text-align: center; width: 100%; vertical-align: middle;"> '

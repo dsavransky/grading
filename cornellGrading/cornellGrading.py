@@ -1309,7 +1309,7 @@ class cornellGrading:
                     # r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
                     # r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                     # r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                    #r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
+                    # r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                     r'(<img class="equation_image"[\s]*src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
                         enclabel
                     ),
@@ -1323,7 +1323,6 @@ class cornellGrading:
                         ),
                         out,
                     )
-
 
                 imspan = (
                     r'<span style="margin: 1ex auto; display: table; '

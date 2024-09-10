@@ -1211,36 +1211,31 @@ class cornellGrading:
                 f.write(ll)
 
         # run pandoc
-        if hwd:
-            _ = subprocess.run(
-                [
-                    "pandoc",
-                    os.path.join(tmpdir, texf),
-                    "-s",
-                    "--webtex",
-                    "-o",
-                    htmlf,
-                    "--default-image-extension=png",
-                ],
-                cwd=hwd,
-                check=True,
-                capture_output=True,
-            )
+        if not (hwd):
+            hwd = os.path.curdir
+
+        pandoc_comm = [
+            "pandoc",
+            os.path.join(tmpdir, texf),
+            "-s",
+            "--webtex",
+            "-o",
+            htmlf,
+            "--default-image-extension=png",
+        ]
+
+        if shutil.which("pandoc-crossref") is not None:
+            pandoc_comm += ["--filter", "pandoc-crossref"]
+            have_crossref = True
         else:
-            _ = subprocess.run(
-                [
-                    "pandoc",
-                    os.path.join(tmpdir, texf),
-                    "-s",
-                    "--webtex",
-                    "-o",
-                    htmlf,
-                    "--default-image-extension=png",
-                ],
-                cwd=os.path.curdir,
-                check=True,
-                capture_output=True,
-            )
+            have_crossref = False
+
+        _ = subprocess.run(
+            pandoc_comm,
+            cwd=hwd,
+            check=True,
+            capture_output=True,
+        )
 
         assert os.path.exists(htmlf), "Cannot locate html output %s" % htmlf
 
@@ -1250,13 +1245,7 @@ class cornellGrading:
 
         upfolder = self.createFolder(folder, hidden=hidden)
 
-        # global replacements
-        repdict = {
-            r'class="math display"': r'style="display: block; text-align: center; margin: 0.5rem auto;"',
-            r'img style="vertical-align:middle"': r'img class="equation_image"',
-            r'src="https://latex.codecogs.com/png.latex\?': r'src="https://canvas.cornell.edu/equation_images/',
-        }
-
+        # latex conversion
         p = re.compile(r'src="https://latex.codecogs.com/png.latex\?(.*?)"')
 
         def convlatex(x):
@@ -1269,21 +1258,10 @@ class cornellGrading:
             parser.feed(line)
             if parser.inBody:
                 tmp = p.sub(convlatex, line)
-                for k, v in repdict.items():
-                    tmp = re.sub(k, v, tmp)
 
-                while parser.imagesUploaded:
-                    imup = parser.imagesUploaded.pop()
-                    canvasimurl = (
-                        r'src="https://canvas.cornell.edu{0}/preview" '
-                        r'data-api-endpoint="https://canvas.cornell.edu/api/'
-                        r'v1{0}" data-api-returntype="File" '.format(imup["url"])
-                    )
-                    tmp = re.sub(r'src="{0}"'.format(imup["orig"]), canvasimurl, tmp)
-
-                    if parser.figcaptions:
-                        figcap = parser.figcaptions.pop()
-                        tmp = re.sub(r'alt=""', r'alt="{0}"'.format(figcap), tmp)
+                if (len(parser.figcaptions) > 0) and not (have_crossref):
+                    figcap = parser.figcaptions.pop()
+                    tmp = re.sub(r'alt=""', r'alt="{0}"'.format(figcap), tmp)
 
                 if parser.spanDefs:
                     for cl, val in parser.spanDefs.items():
@@ -1294,9 +1272,42 @@ class cornellGrading:
 
                 out.append(tmp)
 
+        # put everything together into a isngle string
         out = out[1:]
-        # out = ' #strdelim# '.join(out)
         out = " ".join(out)
+
+        # global replacements
+        repdict = {
+            r'class="math display"': r'style="display: block; text-align: center; margin: 0.5rem auto;"',
+            r'img[\s]*style="vertical-align:middle"': r'img class="equation_image"',
+            r'src="https://latex.codecogs.com/png.latex\?': r'src="https://canvas.cornell.edu/equation_images/',
+            r"<figcaption": '<figcaption style="text-align: center;"',
+        }
+
+        for k, v in repdict.items():
+            out = re.sub(k, v, out)
+
+        # handle all uploaded figures:
+        while parser.imagesUploaded:
+            imup = parser.imagesUploaded.pop()
+            canvasimurl = (
+                r'src="https://canvas.cornell.edu{0}/preview" '
+                r'data-api-endpoint="https://canvas.cornell.edu/api/'
+                r'v1{0}" data-api-returntype="File" '.format(imup["url"])
+            )
+            out = re.sub(r'src="{0}"'.format(imup["orig"]), canvasimurl, out)
+
+        # figures less than 100% width get centered:
+        p2 = re.compile(r'style="([\S]*)?(?=")"')
+
+        def convwidth(x):
+            return re.sub(
+                x.group(1),
+                f"{x.group(1)}; display: block; margin-left: auto; margin-right: auto;",
+                x.group(),
+            )
+
+        out = p2.sub(convwidth, out)
 
         # handle any labeled equations
         if parser.eqlabels:
@@ -1306,23 +1317,9 @@ class cornellGrading:
                 # for every equation image with a label, find it, and replace with a
                 # span with an equation number
                 imtag = re.search(
-                    # r'<p>(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/></p>)/>)</p>'.format(
-                    # r'(<img class="equation_image"(.*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                    # r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                    # r'(<img class="equation_image" src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                    r'(<img class="equation_image"[\s]*src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                        enclabel
-                    ),
+                    rf'(<img class="equation_image"[\s]*src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={enclabel})([\s\S]*?)(?=/>)/>)',
                     out,
                 )
-                # if imtag is None, try alternate regexp
-                if imtag is None:
-                    imtag = re.search(
-                        r'(<img[\s]*style="vertical-align:middle"[\s]*src="https://canvas.cornell.edu/equation_images/([\w%.-]*?)(?={})([\s\S]*?)(?=/>)/>)'.format(
-                            enclabel
-                        ),
-                        out,
-                    )
 
                 imspan = (
                     r'<span style="margin: 1ex auto; display: table; '
@@ -1342,11 +1339,10 @@ class cornellGrading:
                 out = out.replace("[{}]".format(label), "{}".format(eqnum))
 
         # handle any figure labels
-        if parser.figLabels:
+        if (len(parser.figLabels) > 0) and not (have_crossref):
             for cl, val in parser.figLabels.items():
                 out = out.replace(cl, val)
 
-        # out = out.split(' #strdelim# ')
         return out
 
     def genPrivateHWSurvey(self, surveyname, nprobs, scoreOptions=None, ecprobs=[]):

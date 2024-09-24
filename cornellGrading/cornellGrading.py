@@ -478,7 +478,9 @@ class cornellGrading:
 
         return pg
 
-    def createPage(self, title, body, editing_roles="teachers", published=False):
+    def createPage(
+        self, title, body, editing_roles="teachers", published=False, publish_at=None
+    ):
         """Create a Page
 
         Args:
@@ -489,7 +491,10 @@ class cornellGrading:
             editing_roles (str):
                 See canvas API. Comma sepeated string, defaults to "teachers"
             published (bool):
-                Whether page is published on create (defaults True)
+                Whether page is published on create (defaults False)
+            publish_at (datetime.datetime):
+                Publish date (not included if None). Must be timezone aware and UTC! If
+                set, overrides any inputs for published. Defaults None.
 
         Returns:
             canvasapi.page.Page:
@@ -503,6 +508,8 @@ class cornellGrading:
         """
 
         assert isinstance(editing_roles, str), "editing_roles must be a string."
+        if publish_at is not None:
+            published = False
 
         wiki_page = {
             "title": title,
@@ -510,6 +517,8 @@ class cornellGrading:
             "editing_roles": editing_roles,
             "published": published,
         }
+        if publish_at:
+            wiki_page["publish_at"] = publish_at.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         res = self.course.create_page(wiki_page=wiki_page)
 
@@ -523,6 +532,7 @@ class cornellGrading:
         hidden=True,
         editing_roles="teachers",
         published=False,
+        publish_at=None,
         insertPDF=False,
     ):
         """Generate a new canvas page out of a LaTex source file
@@ -546,6 +556,9 @@ class cornellGrading:
                 See canvas API. Comma sepeated string, defaults to "teachers"
             published (bool):
                 Whether page is published on create (defaults False)
+            publish_at (datetime.datetime):
+                Publish date (not included if None). Must be timezone aware and UTC! If
+                set, overrides any inputs for published. Defaults None.
             insertPDF (bool):
                 If true, also include the original file in the page (this assumes that
                 fname points at the compiled PDF and not the source).
@@ -558,6 +571,7 @@ class cornellGrading:
             Requires pandoc to be installed and callable!
 
         .. warning::
+
             Uploaded files will overwrite files of the same name in the upload folder.
 
         """
@@ -585,7 +599,11 @@ class cornellGrading:
         body += " " + out
 
         res = self.createPage(
-            title, body, editing_roles=editing_roles, published=published
+            title,
+            body,
+            editing_roles=editing_roles,
+            published=published,
+            publish_at=publish_at,
         )
 
         return res

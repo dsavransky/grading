@@ -15,6 +15,7 @@ from cornellGrading.cornellQualtrics import cornellQualtrics
 import urllib.parse
 import subprocess
 import shutil
+import requests
 
 try:
     from cornellGrading.pandocHTMLParser import pandocHTMLParser
@@ -1986,3 +1987,121 @@ class cornellGrading:
             item["position"] = position
 
         module.create_module_item(item)
+
+    def addNewQuizItem(self, quizid, item):
+        """
+
+        Args:
+            quizid (int):
+                ID of New Quiz to add item to.\
+            item (dict):
+                Item payload dictionary.  This is the contents of the 'item' key in the
+                JSON payload. For details, see:
+                https://canvas.instructure.com/doc/api/new_quiz_items.html#Question+Types-appendix
+
+        """
+
+        full_url = "{}{}".format(
+            self.course._requester.new_quizzes_url,
+            "courses/{}/quizzes/{}/items".format(self.course.id, quizid),
+        )
+        headers = {
+            "Authorization": "Bearer {}".format(self.course._requester.access_token)
+        }
+
+        r = requests.post(full_url, json={"item": item}, headers=headers)
+        assert r.status_code == 200
+
+    def setupNewQuizSelfAssessment(
+        self,
+        assignmentNum,
+        nprobs,
+        solfile,
+        item,
+        preamble="",
+        selfGradeDueDelta=7,
+        selfGradeReleasedDelta=3,
+    ):
+        """Create a page with reference solutions and a New Quiz linking to the page for
+        student self-assemssent.
+
+        Args:
+            assignmentNum (int):
+                Number of assignment. All names will be of the form "[preamble] HW#"
+                where # is `assignmentNum`. See also `preamble` input.
+            nprobs (int):
+                Number of howmework problems
+            solfile (str):
+                Full path to solutions file to upload
+            item (dict):
+                New Quiz item payload dictionary. See `addNewQuizItem`
+            preamble (str):
+                Preamble for all naming. Defaults to "" in which case all names start
+                with "HW#" where # is `assignmentNum`.
+            selfGradeDueDelta (float):
+                Days after initial hw duedate that self-grading is due
+            selfGradeReleasedDelta (float):
+                Days after initial hw duedate that self-grading (and solutions) are
+                released.
+
+        Returns:
+            None
+
+        """
+
+        # ensure solutions file exists
+        assert os.path.exists(solfile)
+
+        # if preamble set, make sure it ends in a space
+        if preamble != "":
+            preamble = f"{preamble.strip()} "
+
+        # grab the original assignment and all the submissions
+        hwname = f"{preamble}HW{assignmentNum}"
+        hw = self.getAssignment(hwname)
+
+        # figure out all dates
+        duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
+        unlockdate = duedate + timedelta(days=selfGradeReleasedDelta)
+        selfgradeduedate = unlockdate + timedelta(days=selfGradeDueDelta)
+
+        # generate reference solutions page
+        pagename = f"{preamble}HW{assignmentNum} Solutions"
+
+        hwfoldername = "Homeworks/HW%d" % assignmentNum
+        _ = self.createFolder(hwfoldername, hidden=True)
+
+        p = self.latex2page(
+            solfile,
+            pagename,
+            folder=hwfoldername,
+            publish_at=unlockdate,
+        )
+
+        # get self-assessment assignment group and generate new quiz there
+        assgrp = self.getAssignmentGroup("Homework Self-Assessment")
+
+        instructions = (
+            rf"<p>{preamble}HW{assignmentNum} Solutions are available here: "
+            rf'<a title={pagename} href="{p.html_url}" data-course-type="wikiPages" '
+            rf'data-published="true">{pagename}</a>. Check your work and score '
+            r" yourself based on the rubric in the syllabus.</p>"
+        )
+
+        nq = self.course.create_new_quiz(
+            quiz={
+                "title": f"{preamble}HW{assignmentNum} Self-Assessment",
+                "assignment_group_id": assgrp.id,
+                "points_possible": hw.points_possible,
+                "due_at": selfgradeduedate,
+                "unlock_at": unlockdate,
+                "grading_type": "points",
+                "instructions": instructions,
+            }
+        )
+
+        for j in range(nprobs):
+            tmp = item.copy()
+            tmp["position"] = j + 1
+            tmp["entry"]["title"] = f"Problem {j+1} score"
+            self.addNewQuizItem(self, nq.id, tmp)

@@ -210,6 +210,7 @@ class cornellGrading:
                 Name of assignment to return.  Must be exact match.
                 To see all assignments do:
                 >> for a in c.course.get_assignments(): print(a)
+
         Returns:
             canvasapi.assignment.Assignment:
                 The Assignment object
@@ -235,6 +236,7 @@ class cornellGrading:
                 Name of assignment group to return.  Must be exact match.
                 To see all assignments do:
                 >> for a in c.course.get_assignment_groups(): print(a)
+
         Returns:
             canvasapi.assignment.AssignmentGroup:
                 The assignment group object
@@ -256,8 +258,9 @@ class cornellGrading:
         """Create assignment group by name
 
         Args:
-            assignmentGroup (str):
+            groupName (str):
                 Name of assignment group to create. Cannot be name of existing group
+
         Returns:
             canvasapi.assignment.AssignmentGroup:
                 The assignment group object
@@ -278,10 +281,11 @@ class cornellGrading:
         """Locate folder by name
 
         Args:
-             (str):
+             folderName (str):
                 Name of folder to return.  Must be exact match.
                 To see all assignments do:
                 >> for a in c.course.get_folders(): print(a.name)
+
         Returns:
             canvasapi.folder.Folder:
                 The folder object
@@ -314,6 +318,7 @@ class cornellGrading:
             hidden (bool):
                 Whether to toggle to hidden (false by default). If parent folder is
                 hidden, you cannot make the subfolder visible.
+
         Returns:
             canvasapi.folder.Folder:
                 The folder object
@@ -1030,6 +1035,8 @@ class cornellGrading:
                 Due date in format: YYYY-MM-DD (5pm assumed local time)
             hwfile (str):
                 Full path to homework file
+            totscore (int, float):
+                Total number of points for the assignment. Defaults to 10.
             unlockDelta (float):
                 Unlock this number of days before due date. Defaults to None,
                 which makes the assignment initially unlocked.
@@ -1624,7 +1631,7 @@ class cornellGrading:
                 Number of assignment. Name of survey will be
                 "self.coursename HW# Self-Grade"
                 Name of assignment will be HW#
-            escore (int):
+            ecscore (int):
                 Extra credit score (defaults to 3)
             checkLate (bool):
                 Check for late submissions (defaults true)
@@ -2012,6 +2019,36 @@ class cornellGrading:
         r = requests.post(full_url, json={"item": item}, headers=headers)
         assert r.status_code == 200
 
+    def getHomework(self, assignmentNum, preamble=""):
+        """Retrieve assignment based on number and optional preamble
+
+        Args:
+            assignmentNum (int):
+                Assignment names will be of the form "[preamble] HW#"
+                where # is `assignmentNum`. See also `preamble` input.
+
+            preamble (str):
+                If not "", then assignment name will be "[preamble] HW#". Otherwise,
+                name will be "HW#".  Defaults to ""
+
+        Returns:
+            tuple:
+                hwname (str):
+                    Full assignment name
+                hw (canvasapi.assignment.Assignment):
+                    Assignment object
+        """
+
+        # if preamble set, make sure it ends in a space
+        if preamble != "":
+            preamble = f"{preamble.strip()} "
+
+        # generate the name and grab the assignment
+        hwname = f"{preamble}HW{assignmentNum}"
+        hw = self.getAssignment(hwname)
+
+        return hwname, hw
+
     def setupNewQuizSelfAssessment(
         self,
         assignmentNum,
@@ -2027,8 +2064,8 @@ class cornellGrading:
 
         Args:
             assignmentNum (int):
-                Number of assignment. All names will be of the form "[preamble] HW#"
-                where # is `assignmentNum`. See also `preamble` input.
+                Number of assignment.
+                See :py:meth:`cornellGrading.cornellGrading.getHomework` for details.
             nprobs (int):
                 Number of howmework problems
             solfile (str):
@@ -2036,8 +2073,8 @@ class cornellGrading:
             item (dict):
                 New Quiz item payload dictionary. See `addNewQuizItem`
             preamble (str):
-                Preamble for all naming. Defaults to "" in which case all names start
-                with "HW#" where # is `assignmentNum`.
+                Preamble for all naming.
+                See :py:meth:`cornellGrading.cornellGrading.getHomework` for details.
             selfGradeDueDelta (float):
                 Days after initial hw duedate that self-grading is due
             selfGradeReleasedDelta (float):
@@ -2052,13 +2089,8 @@ class cornellGrading:
         # ensure solutions file exists
         assert os.path.exists(solfile)
 
-        # if preamble set, make sure it ends in a space
-        if preamble != "":
-            preamble = f"{preamble.strip()} "
-
-        # grab the original assignment and all the submissions
-        hwname = f"{preamble}HW{assignmentNum}"
-        hw = self.getAssignment(hwname)
+        # get original assignment
+        hwname, hw = self.getHomework(assignmentNum, preamble=preamble)
 
         # figure out all dates
         duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
@@ -2066,7 +2098,7 @@ class cornellGrading:
         selfgradeduedate = unlockdate + timedelta(days=selfGradeDueDelta)
 
         # generate reference solutions page
-        pagename = f"{preamble}HW{assignmentNum} Solutions"
+        pagename = f"{hwname} Solutions"
 
         hwfoldername = "Homeworks/HW%d" % assignmentNum
         _ = self.createFolder(hwfoldername, hidden=True)
@@ -2082,15 +2114,15 @@ class cornellGrading:
         assgrp = self.getAssignmentGroup("Homework Self-Assessment")
 
         instructions = (
-            rf"<p>{preamble}HW{assignmentNum} Solutions are available here: "
-            rf'<a title={pagename} href="{p.html_url}" data-course-type="wikiPages" '
-            rf'data-published="true">{pagename}</a>. Check your work and score '
+            rf"<p>{hwname} Solutions are available here: "
+            rf'<a title={pagename} href="{p.html_url.split(".edu")[-1]}" '
+            rf'data-course-type="wikiPages">{pagename}</a>. Check your work and score '
             r" yourself based on the rubric in the syllabus.</p>"
         )
 
         nq = self.course.create_new_quiz(
             quiz={
-                "title": f"{preamble}HW{assignmentNum} Self-Assessment",
+                "title": f"{hwname} Self-Assessment",
                 "assignment_group_id": assgrp.id,
                 "points_possible": hw.points_possible,
                 "due_at": selfgradeduedate,
@@ -2100,8 +2132,127 @@ class cornellGrading:
             }
         )
 
+        # add new quiz items
         for j in range(nprobs):
             tmp = item.copy()
             tmp["position"] = j + 1
             tmp["entry"]["title"] = f"Problem {j+1} score"
-            self.addNewQuizItem(self, nq.id, tmp)
+            self.addNewQuizItem(nq.id, tmp)
+
+        # publish quiz
+        ass = self.getAssignment(nq.title)
+        ass.edit(assignment={"published": True})
+
+    def linearTimePenalty(self, hw, latePenalty=0.25, maxDaysLate=3):
+        """Compute late penalty as linearly increasing in time.
+
+        Args:
+            hw (canvasapi.assignment.Assignment):
+                Assignment object
+            latePenalty (float):
+                Maximum fraction of score to remove for lateness (defaults to 0.25).
+                Must be in (0,1).
+            maxDaysLate (float):
+                After this number of days past deadline, HW gets zero. Defaults to 3.
+                Students submitting at exactly the maximum time will recieve the maximum
+                late penalty.
+
+        Returns:
+            dict:
+                Dictionary of late penalties in absolute points. Keys are netids.
+                The dictionary will only contain values for students with submissions.
+
+        """
+
+        totscore = hw.points_possible
+        duedate = datetime.strptime(hw.due_at, """%Y-%m-%dT%H:%M:%S%z""")
+
+        lates = {}
+        for t in hw.get_submissions():
+            if t.user_id in self.ids:
+                netid = self.netids[self.ids == t.user_id][0]
+
+                if t.submitted_at:
+                    subtime = datetime.strptime(
+                        t.submitted_at, """%Y-%m-%dT%H:%M:%S%z"""
+                    )
+                    if not t.late:
+                        tdelta = 0
+                    else:
+                        tdelta = np.abs((duedate - subtime).total_seconds()) / 86400
+
+                    if tdelta > maxDaysLate:
+                        lates[netid] = totscore
+                    else:
+                        lates[netid] = tdelta / maxDaysLate * totscore * latePenalty
+
+        return lates
+
+    def importNewQuizSelfAssessment(
+        self,
+        assignmentNum,
+        latePenalty=0.25,
+        maxDaysLate=3,
+        preamble="",
+    ):
+        """
+
+        Args:
+            assignmentNum (int):
+                Number of assignment.
+                See :py:meth:`cornellGrading.cornellGrading.getHomework` for details.
+            latePenalty (float):
+                Maximum fraction of score to remove for lateness (defaults to 0.25).
+                Must be in (0,1).
+            maxDaysLate (float):
+                After this number of days past deadline, HW gets zero. Defaults to 3.
+                Students submitting at exactly the maximum time will recieve the maximum
+                late penalty.
+            preamble (str):
+                Preamble for all naming.
+                See :py:meth:`cornellGrading.cornellGrading.getHomework` for details.
+
+        Returns:
+            tuple:
+                submittedScoreNoAssignment (list):
+                    netids of students who submitted scores but not the original
+                    assignment
+                submittedAssignmentNoScore (list):
+                    netids of students who submitted original assignments but not
+                    self-assessment scores
+
+        """
+
+        # get original assignments
+        hwname, hw = self.getHomework(assignmentNum, preamble=preamble)
+
+        # compute late penalties
+        lates = self.linearTimePenalty(
+            hw, latePenalty=latePenalty, maxDaysLate=maxDaysLate
+        )
+
+        # get the self-grading assignment and process submissions
+        sg = self.getAssignment(f"{hwname} Self-Assessment")
+        netids = []
+        scores = []
+        submittedScoreNoAssignment = []
+        for sub in sg.get_submissions():
+            if sub.user_id not in self.ids:
+                continue
+            if sub.grade is None:
+                continue
+            netid = self.netids[self.ids == sub.user_id][0]
+            if netid not in lates:
+                print(f"{netid} submitted self-grading but not the assignment!")
+                submittedScoreNoAssignment.append(netid)
+                continue
+
+            netids.append(netid)
+            scores.append(float(sub.grade) - lates[netid])
+
+        # identify students with submitted assignments but no self-assessments
+        submittedAssignmentNoScore = list(set(lates.keys()) - set(netids))
+
+        self.uploadScores(hw, netids, scores)
+
+        return submittedScoreNoAssignment, submittedAssignmentNoScore

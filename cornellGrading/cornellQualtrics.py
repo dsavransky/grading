@@ -516,6 +516,7 @@ class cornellQualtrics:
         subject,
         cmsg="",
         replyTo="no-reply@cornell.edu",
+        fromName="A Survey Robot",
     ):
         """Create a survey distribution for the given mailing list
 
@@ -535,6 +536,8 @@ class cornellQualtrics:
                 Custom message to add to standard email
             replyTo (str):
                 Reply-to address
+            fromName (str):
+                From string
 
         Returns:
             str:
@@ -565,7 +568,7 @@ class cornellQualtrics:
             "header": {
                 "fromEmail": "invitation@surveys.mail.cornell.edu",
                 "replyToEmail": replyTo,
-                "fromName": "A Survey Robot",
+                "fromName": fromName,
                 "subject": subject,
             },
             "surveyLink": {"surveyId": surveyId, "type": "Individual"},

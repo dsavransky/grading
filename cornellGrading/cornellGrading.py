@@ -16,6 +16,8 @@ import urllib.parse
 import subprocess
 import shutil
 import requests
+import uuid
+from cornellGrading.utils import convalllatex
 
 try:
     from cornellGrading.pandocHTMLParser import pandocHTMLParser
@@ -2054,7 +2056,7 @@ class cornellGrading:
         assignmentNum,
         nprobs,
         solfile,
-        item,
+        npoints=3,
         preamble="",
         selfGradeDueDelta=7,
         selfGradeReleasedDelta=3,
@@ -2070,8 +2072,8 @@ class cornellGrading:
                 Number of howmework problems
             solfile (str):
                 Full path to solutions file to upload
-            item (dict):
-                New Quiz item payload dictionary. See `addNewQuizItem`
+            npoints (int):
+                Number of points each question is scored out of. Defaults to 3.
             preamble (str):
                 Preamble for all naming.
                 See :py:meth:`cornellGrading.cornellGrading.getHomework` for details.
@@ -2131,6 +2133,9 @@ class cornellGrading:
                 "instructions": instructions,
             }
         )
+
+        # create item
+        item = self.genNpointNewQuizItem(npoints)
 
         # add new quiz items
         for j in range(nprobs):
@@ -2256,3 +2261,113 @@ class cornellGrading:
         self.uploadScores(hw, netids, scores)
 
         return submittedScoreNoAssignment, submittedAssignmentNoScore
+
+    def genNpointNewQuizItem(self, n, item_body=None, title=None):
+        """Generate a New Quiz multiple choice, variable point question with answers
+        ranging from 0 to n and each answer worth the equivalent number of points.
+
+        Args:
+            n (int):
+                Number of points possible.  Question will have n+1 options (from 0 to n)
+                with each response worth the equivalent number of points
+            item_body (str, optional):
+                Question text (html formatted).  If None (default) this is set to
+                <p>Enter your score based on the rubric in the syllabus</p>
+            title (str, optional):
+                Question title.  If None (default) this is set to:
+                HW Problem Score
+
+        Returns:
+            dict:
+                New Quiz Multiple choice question definition
+
+        """
+
+        # set default body text and title
+        if item_body is None:
+            item_body = "<p>Enter your score based on the rubric in the syllabus</p>"
+
+        if title is None:
+            title = "HW Problem Score"
+
+        # generate UUIDs
+        uuids = [uuid.uuid4() for _ in range(n + 1)]
+
+        # create choices and values dict list
+        choices = []
+        values = []
+        for j in range(n + 1):
+            choices.append(
+                {"id": f"{uuids[j]}", "position": j + 1, "item_body": f"<p>{j}</p>"}
+            )
+            values.append({"value": f"{uuids[j]}", "points": j})
+
+        q = {
+            "position": 0,
+            "points_possible": float(n),
+            "entry_type": "Item",
+            "status": "immutable",
+            "entry": {
+                "title": title,
+                "item_body": item_body,
+                "calculator_type": "none",
+                "interaction_data": {"choices": choices},
+                "properties": {
+                    "shuffle_rules": {"choices": {"to_lock": [], "shuffled": False}},
+                    "vary_points_by_answer": True,
+                },
+                "scoring_data": {
+                    "value": f"{uuids[-1]}",
+                    "values": values,
+                },
+                "answer_feedback": {f"{uuids[0]}": ""},
+                "scoring_algorithm": "VaryPointsByAnswer",
+                "interaction_type_slug": "choice",
+                "feedback": {},
+            },
+        }
+
+        return q
+
+    def genNewQuizMultipleChoice(self, question, options, correct_ind, points=1):
+
+        # generate UUIDs
+        uuids = [uuid.uuid4() for _ in range(len(options))]
+
+        # create choices dict list
+        choices = []
+        for j in range(len(options)):
+            choices.append(
+                {
+                    "id": f"{uuids[j]}",
+                    "position": j + 1,
+                    "item_body": f"<p>{convalllatex(options[j])}</p>",
+                }
+            )
+
+        q = {
+            "position": 0,
+            "points_possible": float(points),
+            "properties": {},
+            "entry_type": "Item",
+            "entry_editable": True,
+            "stimulus_quiz_entry_id": "",
+            "status": "mutable",
+            "entry": {
+                "title": question,
+                "item_body": f"<p>{convalllatex(question)}</p>",
+                "calculator_type": "none",
+                "interaction_data": {"choices": choices},
+                "properties": {
+                    "shuffle_rules": {"choices": {"to_lock": [], "shuffled": False}},
+                    "vary_points_by_answer": False,
+                },
+                "scoring_data": {"value": f"{uuids[correct_ind]}"},
+                "answer_feedback": {},
+                "scoring_algorithm": "Equivalence",
+                "interaction_type_slug": "choice",
+                "feedback": {},
+            },
+        }
+
+        return q

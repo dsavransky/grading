@@ -5,6 +5,7 @@ import keyring
 import time
 from datetime import datetime, timedelta
 import pytz
+import canvasapi
 from canvasapi import Canvas
 from canvasapi.exceptions import InvalidAccessToken
 import tempfile
@@ -2303,7 +2304,7 @@ class cornellGrading:
             values.append({"value": f"{uuids[j]}", "points": j})
 
         q = {
-            "position": 0,
+            "position": position,
             "points_possible": float(n),
             "entry_type": "Item",
             "status": "immutable",
@@ -2329,7 +2330,28 @@ class cornellGrading:
 
         return q
 
-    def genNewQuizMultipleChoice(self, question, options, correct_ind, points=1):
+    def genNewQuizMultipleChoice(
+        self, question, options, correct_ind, points=1, position=0
+    ):
+        """Generate a new quiz-style multiple choice question dictionary
+
+        Args:
+            question (str):
+                The raw question text (may include LaTeX)
+            options (list(str) or ~numpy.ndarray(str)):
+                Possible answers. All contents must be strings (may include LaTeX)
+            correct_ind (ind):
+                Index of correct answer in `options` input.
+            points (int):
+                Number of points for correct answer (defaults to 1).
+            position (int):
+                Position of question in quiz.  Defaults to 0
+
+        Returns:
+            dict:
+                Question-defining dictionary
+
+        """
 
         # generate UUIDs
         uuids = [uuid.uuid4() for _ in range(len(options))]
@@ -2346,7 +2368,7 @@ class cornellGrading:
             )
 
         q = {
-            "position": 0,
+            "position": position,
             "points_possible": float(points),
             "properties": {},
             "entry_type": "Item",
@@ -2371,3 +2393,102 @@ class cornellGrading:
         }
 
         return q
+
+    def genQuizMultipleChoice(
+        self, question, options, correct_ind, points=1, position=0
+    ):
+        """ "Generate a classic quiz-style multiple choice question dictionary
+
+        Args:
+            question (str):
+                The raw question text (may include LaTeX)
+            options (list(str) or ~numpy.ndarray(str)):
+                Possible answers. All contents must be strings (may include LaTeX)
+            correct_ind (ind):
+                Index of correct answer in `options` input.
+            points (int):
+                Number of points for correct answer (defaults to 1).
+            position (int):
+                Position of question in quiz.  Defaults to 0
+
+        Returns:
+            dict:
+                Question-defining dictionary
+
+        """
+
+        # create answers dict list
+        answers = []
+        for j in range(len(options)):
+            answers.append(
+                {
+                    "answer_html": f"<p>{convalllatex(options[j])}</p>",
+                    "answer_weight": 100 if j == correct_ind else 0,
+                }
+            )
+
+        q = {
+            "question_name": question,
+            "question_text": f"<p>{convalllatex(question)}</p>",
+            "question_type": "multiple_choice_question",
+            "position": 0,
+            "points_possible": points,
+            "answers": answers,
+        }
+
+        return q
+
+    def genQuizFromPolev(self, allqs, quiz):
+        """Generate quiz items from a PollEv formatted CSV input file
+
+        Args:
+            allqs (pandas.DataFrame):
+                Table of questions and answers, formatted in PolEV CSV upload style
+            quiz (canvasapi.new_quiz.NewQuiz or canvasapi.quiz.Quiz):
+                Quiz object
+
+        Returns:
+            None
+
+        .. note::
+            Poll Everywhere upload format documentation is available here:
+            https://support.polleverywhere.com/hc/en-us/articles/1260801546530-Import-questions
+
+        """
+
+        assert isinstance(
+            quiz, (canvasapi.new_quiz.NewQuiz, canvasapi.quiz.Quiz)
+        ), "quiz input must be a Quiz or New Quiz object."
+
+        # identify response columns:
+        optcols = []
+        for col in allqs.columns:
+            if col.startswith("Option"):
+                optcols.append(col)
+
+        # iterate through rows, creating the questions
+        for j, row in allqs.iterrows():
+            question = row.Title
+            opts = row[optcols].values
+            opts = opts[~pandas.isna(opts)]
+            correct_ind = [
+                j
+                for j, s in enumerate(opts)
+                if isinstance(s, str) and s.startswith("***")
+            ]
+            assert len(correct_ind) == 1
+            correct_ind = correct_ind[0]
+            opts[correct_ind] = opts[correct_ind].strip("***")
+
+            # create and add the question depending on quiz type
+            if isinstance(quiz, canvasapi.new_quiz.NewQuiz):
+                q = self.genNewQuizMultipleChoice(
+                    question, opts.astype(str), correct_ind, position=j + 1
+                )
+
+                self.addNewQuizItem(quiz.id, q)
+            else:
+                q = self.genQuizMultipleChoice(
+                    question, opts.astype(str), correct_ind, position=j + 1
+                )
+                quiz.create_question(question=q)

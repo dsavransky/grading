@@ -3,7 +3,7 @@ Course Workflows
 
 Conventions
 -----------------------
-Assignments will be named as ``[Premable ]HW?`` where ``Preamble`` is an optional string (a space is automatically added between the preamble and ``HW`` is the preamble is not an empty string.  The ``?`` is an integer value. So, assignment number one, but default will be called ``HW1``.
+Assignments will be named as ``[Premable ]HW?`` where ``Preamble`` is an optional string (a space is automatically added between the preamble and ``HW`` if the preamble is not an empty string.  The ``?`` is an integer value. So, assignment number one, but default will be called ``HW1``.
 
 
 Initial Course Setup

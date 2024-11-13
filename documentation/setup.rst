@@ -28,7 +28,7 @@ To install system-wide, omit the ``--user`` option. This requires administrative
 
 .. note::
 
-    The ``latex2html`` option requires the pandoc executable to be installed and in the system PATH.  For detailed pandoc installation instructions see here: https://pandoc.org/installing.html
+    The ``latex2html`` option requires the pandoc executable to be installed and in the system PATH.  For detailed pandoc installation instructions see here: https://pandoc.org/installing.html.  Additional functionality is available when pandoc-crossref is installed (see: https://github.com/lierdakil/pandoc-crossref).
 
 From GitHub
 ^^^^^^^^^^^^^^^^^

@@ -2022,8 +2022,8 @@ class cornellGrading:
         r = requests.post(full_url, json={"item": item}, headers=headers)
         assert r.status_code == 200
 
-    def getHomework(self, assignmentNum, preamble=""):
-        """Retrieve assignment based on number and optional preamble
+    def genHomeworkName(self, assignmentNum, preamble=""):
+        """Synthesize assignment name based on number and optional preamble
 
         Args:
             assignmentNum (int):
@@ -2048,6 +2048,31 @@ class cornellGrading:
 
         # generate the name and grab the assignment
         hwname = f"{preamble}HW{assignmentNum}"
+
+        return hwname
+
+    def getHomework(self, assignmentNum, preamble=""):
+        """Retrieve assignment based on number and optional preamble
+
+        Args:
+            assignmentNum (int):
+                Assignment names will be of the form "[preamble] HW#"
+                where # is `assignmentNum`. See also `preamble` input.
+
+            preamble (str):
+                If not "", then assignment name will be "[preamble] HW#". Otherwise,
+                name will be "HW#".  Defaults to ""
+
+        Returns:
+            tuple:
+                hwname (str):
+                    Full assignment name
+                hw (canvasapi.assignment.Assignment):
+                    Assignment object
+        """
+
+        # get the name and grab the assignment
+        hwname = self.genHomeworkName(assignmentNum, preamble=preamble)
         hw = self.getAssignment(hwname)
 
         return hwname, hw
@@ -2263,7 +2288,7 @@ class cornellGrading:
 
         return submittedScoreNoAssignment, submittedAssignmentNoScore
 
-    def genNpointNewQuizItem(self, n, item_body=None, title=None):
+    def genNpointNewQuizItem(self, n, item_body=None, title=None,  position=0):
         """Generate a New Quiz multiple choice, variable point question with answers
         ranging from 0 to n and each answer worth the equivalent number of points.
 
@@ -2277,6 +2302,8 @@ class cornellGrading:
             title (str, optional):
                 Question title.  If None (default) this is set to:
                 HW Problem Score
+            position (int):
+                Position of question in quiz.  Defaults to 0
 
         Returns:
             dict:

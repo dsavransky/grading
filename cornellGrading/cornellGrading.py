@@ -2465,7 +2465,7 @@ class cornellGrading:
 
         return q
 
-    def genQuizFromPolev(self, allqs, quiz):
+    def genQuizFromPolev(self, allqs, quiz, imagePath=None):
         """Generate quiz items from a PollEv formatted CSV input file
 
         Args:
@@ -2473,6 +2473,8 @@ class cornellGrading:
                 Table of questions and answers, formatted in PolEV CSV upload style
             quiz (canvasapi.new_quiz.NewQuiz or canvasapi.quiz.Quiz):
                 Quiz object
+            imagePath (str, optional):
+                Full path to location on disk of any image files to use in questions.
 
         Returns:
             None

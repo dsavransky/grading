@@ -284,9 +284,9 @@ class cornellGrading:
         """Locate folder by name
 
         Args:
-             folderName (str):
+            folderName (str):
                 Name of folder to return.  Must be exact match.
-                To see all assignments do:
+                To see all folders do:
                 >> for a in c.course.get_folders(): print(a.name)
 
         Returns:
@@ -2288,7 +2288,7 @@ class cornellGrading:
 
         return submittedScoreNoAssignment, submittedAssignmentNoScore
 
-    def genNpointNewQuizItem(self, n, item_body=None, title=None,  position=0):
+    def genNpointNewQuizItem(self, n, item_body=None, title=None, position=0):
         """Generate a New Quiz multiple choice, variable point question with answers
         ranging from 0 to n and each answer worth the equivalent number of points.
 
@@ -2465,7 +2465,7 @@ class cornellGrading:
 
         return q
 
-    def genQuizFromPolev(self, allqs, quiz, imagePath=None):
+    def genQuizFromPollEv(self, allqs, quiz, imagePath=None, imageFolder="QuizImages"):
         """Generate quiz items from a PollEv formatted CSV input file
 
         Args:
@@ -2475,6 +2475,9 @@ class cornellGrading:
                 Quiz object
             imagePath (str, optional):
                 Full path to location on disk of any image files to use in questions.
+            imageFolder (str):
+                Name of Canvas folder to upload images to. Defaults to 'QuizImages'. If
+                folder does not exist, it will be created as a hidden folder.
 
         Returns:
             None
@@ -2482,6 +2485,10 @@ class cornellGrading:
         .. note::
             Poll Everywhere upload format documentation is available here:
             https://support.polleverywhere.com/hc/en-us/articles/1260801546530-Import-questions
+            The format is expanded by adding a 'Figure' column.  The contents of this
+            column should be the filename (without extension) of a figure associated
+            with the question.  If any figures are present, input `imagePath` must be
+            set. Images must be in png format with extension .png.
 
         """
 
@@ -2495,8 +2502,19 @@ class cornellGrading:
             if col.startswith("Option"):
                 optcols.append(col)
 
+        # check for any figures and make sure we have enough information to upload them
+        if np.any(~allqs["Figure"].isna()):
+            assert (
+                imagePath is not None
+            ), "imagePath must be set if questions include figures."
+            try:
+                figFolder = self.getFolder(imageFolder)
+            except AssertionError:
+                figFolder = self.createFolder(imageFolder, hidden=True)
+
         # iterate through rows, creating the questions
         for j, row in allqs.iterrows():
+            # process question and responses
             question = row.Title
             opts = row[optcols].values
             opts = opts[~pandas.isna(opts)]
@@ -2509,6 +2527,15 @@ class cornellGrading:
             correct_ind = correct_ind[0]
             opts[correct_ind] = opts[correct_ind].strip("***")
 
+            # process figure (if any)
+            if not (pandas.isna(row.Figure)):
+                impath = os.path.join(imagePath, f"{row.Figure}.png")
+                assert os.path.exists(impath), f"Can not locate {impath}."
+                status, fig = figFolder.upload(impath)
+                assert status, f"Failed to upload {impath}."
+            else:
+                fig = None
+
             # create and add the question depending on quiz type
             if isinstance(quiz, canvasapi.new_quiz.NewQuiz):
                 q = self.genNewQuizMultipleChoice(
@@ -2518,6 +2545,6 @@ class cornellGrading:
                 self.addNewQuizItem(quiz.id, q)
             else:
                 q = self.genQuizMultipleChoice(
-                    question, opts.astype(str), correct_ind, position=j + 1
+                    question, opts.astype(str), correct_ind, position=j + 1, fig=fig
                 )
                 quiz.create_question(question=q)

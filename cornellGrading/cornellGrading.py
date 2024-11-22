@@ -2422,7 +2422,7 @@ class cornellGrading:
         return q
 
     def genQuizMultipleChoice(
-        self, question, options, correct_ind, points=1, position=0, fig=None
+        self, question, options, correct_ind, points=1, position=0, fightml=None
     ):
         """ "Generate a classic quiz-style multiple choice question dictionary
 
@@ -2437,8 +2437,8 @@ class cornellGrading:
                 Number of points for correct answer (defaults to 1).
             position (int):
                 Position of question in quiz.  Defaults to 0
-            fig (dict, optional):
-                JSON dictionary from figure upload. Defaults to None.
+            fightml (str, optional):
+                HTML string from figure upload. Defaults to None.
 
         Returns:
             dict:
@@ -2457,13 +2457,8 @@ class cornellGrading:
             )
 
         qtxt = f"<p>{convalllatex(question)}</p>"
-        if fig is not None:
-            qtxt = (
-                f'{qtxt}\n<p><img id="{fig["id"]}" src="{fig["preview_url"]}" '
-                f'alt="{fig["display_name"]}" width="600" '
-                f'data-api-endpoint="{fig["location"]}" '
-                'data-api-returntype="File"></p>'
-            )
+        if fightml is not None:
+            qtxt = f"{qtxt}\n<p>{fightml}</p>"
 
         q = {
             "question_name": question,
@@ -2528,7 +2523,7 @@ class cornellGrading:
             # process question and responses
             question = row.Title
             opts = row[optcols].values
-            opts = opts[~pandas.isna(opts)]
+            opts = opts[~pandas.isna(opts)].astype(str)
             correct_ind = [
                 j
                 for j, s in enumerate(opts)
@@ -2559,3 +2554,37 @@ class cornellGrading:
                     question, opts.astype(str), correct_ind, position=k + 1, fig=fig
                 )
                 quiz.create_question(question=q)
+
+    def uploadFigure(self, impath, figFolder):
+        """Upload a figure and generate an HTML string for embedding it
+
+        Args:
+            impath (str):
+                Full path of disk to figure file
+            figFolder (canvasapi.folder.Folder):
+                Canvas folder to upload to
+
+        Returns:
+            str:
+                HTML string representing the figure
+        """
+
+        assert os.path.exists(impath), f"Can not locate {impath}."
+        status, fig = figFolder.upload(impath)
+        assert status, f"Failed to upload {impath}."
+
+        figsrc = (
+            f"{self.canvas._Canvas__requester.original_url}/courses/"
+            f"{self.course.id}/files/{fig['id']}/preview?verifier={fig['uuid']}"
+        )
+        apisrc = (
+            f"{self.canvas._Canvas__requester.base_url}courses/"
+            f"{self.course.id}/files/{fig['id']}"
+        )
+
+        fightml = (
+            f'<img id="{fig["id"]}" src="{figsrc}" alt="{fig["display_name"]}" '
+            f'width="600" data-api-endpoint="{apisrc}" data-api-returntype="File">'
+        )
+
+        return fightml

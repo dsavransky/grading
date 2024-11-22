@@ -2422,7 +2422,7 @@ class cornellGrading:
         return q
 
     def genQuizMultipleChoice(
-        self, question, options, correct_ind, points=1, position=0
+        self, question, options, correct_ind, points=1, position=0, fig=None
     ):
         """ "Generate a classic quiz-style multiple choice question dictionary
 
@@ -2437,6 +2437,8 @@ class cornellGrading:
                 Number of points for correct answer (defaults to 1).
             position (int):
                 Position of question in quiz.  Defaults to 0
+            fig (dict, optional):
+                JSON dictionary from figure upload. Defaults to None.
 
         Returns:
             dict:
@@ -2454,9 +2456,18 @@ class cornellGrading:
                 }
             )
 
+        qtxt = f"<p>{convalllatex(question)}</p>"
+        if fig is not None:
+            qtxt = (
+                f'{qtxt}\n<p><img id="{fig["id"]}" src="{fig["preview_url"]}" '
+                f'alt="{fig["display_name"]}" width="600" '
+                f'data-api-endpoint="{fig["location"]}" '
+                'data-api-returntype="File"></p>'
+            )
+
         q = {
             "question_name": question,
-            "question_text": f"<p>{convalllatex(question)}</p>",
+            "question_text": qtxt,
             "question_type": "multiple_choice_question",
             "position": 0,
             "points_possible": points,
@@ -2513,7 +2524,7 @@ class cornellGrading:
                 figFolder = self.createFolder(imageFolder, hidden=True)
 
         # iterate through rows, creating the questions
-        for j, row in allqs.iterrows():
+        for k, row in allqs.iterrows():
             # process question and responses
             question = row.Title
             opts = row[optcols].values
@@ -2539,12 +2550,12 @@ class cornellGrading:
             # create and add the question depending on quiz type
             if isinstance(quiz, canvasapi.new_quiz.NewQuiz):
                 q = self.genNewQuizMultipleChoice(
-                    question, opts.astype(str), correct_ind, position=j + 1
+                    question, opts.astype(str), correct_ind, position=k + 1, fig=fig
                 )
 
                 self.addNewQuizItem(quiz.id, q)
             else:
                 q = self.genQuizMultipleChoice(
-                    question, opts.astype(str), correct_ind, position=j + 1, fig=fig
+                    question, opts.astype(str), correct_ind, position=k + 1, fig=fig
                 )
                 quiz.create_question(question=q)

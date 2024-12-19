@@ -2086,6 +2086,7 @@ class cornellGrading:
         preamble="",
         selfGradeDueDelta=7,
         selfGradeReleasedDelta=3,
+        extraQuestions=[],
     ):
         """Create a page with reference solutions and a New Quiz linking to the page for
         student self-assemssent.
@@ -2108,6 +2109,8 @@ class cornellGrading:
             selfGradeReleasedDelta (float):
                 Days after initial hw duedate that self-grading (and solutions) are
                 released.
+            extraQuestions (list(dict)):
+                List of dicts defining additional questions to ask
 
         Returns:
             None
@@ -2167,8 +2170,12 @@ class cornellGrading:
         for j in range(nprobs):
             tmp = item.copy()
             tmp["position"] = j + 1
-            tmp["entry"]["title"] = f"Problem {j+1} score"
+            tmp["entry"]["title"] = f"Problem {j + 1} score"
             self.addNewQuizItem(nq.id, tmp)
+
+        for j, q in enumerate(extraQuestions):
+            q["position"] = nprobs + j + 1
+            self.addNewQuizItem(nq.id, q)
 
         # publish quiz
         ass = self.getAssignment(nq.title)
@@ -2349,6 +2356,67 @@ class cornellGrading:
                     "values": values,
                 },
                 "answer_feedback": {f"{uuids[0]}": ""},
+                "scoring_algorithm": "VaryPointsByAnswer",
+                "interaction_type_slug": "choice",
+                "feedback": {},
+            },
+        }
+
+        return q
+
+    def genBinaryNewQuizItem(self, n, item_body, title, position=0):
+        """Generate a New Quiz multiple choice, variable point question with answers
+        'Yes' (earning n points) and 'No' (earning 0 points).
+
+        Args:
+            n (int):
+                Number of points possible.  Question will have n+1 options (from 0 to n)
+                with each response worth the equivalent number of points
+            item_body (str):
+                Question text (html formatted). This will automatically be wrapped in
+                <p>...</p>
+            title (str):
+                Question title
+            position (int):
+                Position of question in quiz.  Defaults to 0
+
+        Returns:
+            dict:
+                New Quiz Multiple choice question definition
+
+        """
+
+        # generate UUIDs
+        uuids = [uuid.uuid4() for _ in range(2)]
+
+        # create choices and values dict list
+        choices = []
+        values = []
+        for j, val in enumerate(["Yes", "No"]):
+            choices.append(
+                {"id": f"{uuids[j]}", "position": j + 1, "item_body": f"<p>{val}</p>"}
+            )
+            values.append({"value": f"{uuids[j]}", "points": int(val == "Yes") * n})
+
+        q = {
+            "position": position,
+            "points_possible": float(n),
+            "entry_type": "Item",
+            "status": "immutable",
+            "entry": {
+                "title": title,
+                "item_body": f"<p>{item_body}</p>",
+                "calculator_type": "none",
+                "interaction_data": {"choices": choices},
+                "properties": {
+                    "shuffle_rules": {"choices": {"to_lock": [], "shuffled": False}},
+                    "vary_points_by_answer": True,
+                },
+                "scoring_data": {
+                    "value": f"{uuids[0]}",
+                    "values": values,
+                },
+                "answer_feedback": {},
                 "scoring_algorithm": "VaryPointsByAnswer",
                 "interaction_type_slug": "choice",
                 "feedback": {},

@@ -35,12 +35,15 @@ Now, in python (this assumes that you have completed all steps in :ref:`Setup`):
     print(c.coursename) #should be the course name you set in Canvas
     print(c.names) #should be all your students
 
+If you are going to be using Qualtrics for your course, also run:
+
+.. code-block:: python
+   
     #connect to qualtrics and generate course mailing list
-    #(skip if you don't care about qualtrics)
     c.setupQualtrics()
     c.genCourseMailingList()
 
-
+The Qualtrics setup should be skipped in you are not planning to do Qualtrics-based student polling or Qualtrics-based self-assessments. 
 
 Upload a Homework and Create a New Assignment
 -----------------------------------------------
@@ -63,12 +66,18 @@ In python:
     hwfile =          #string - full path on your local disk to the HW pdf file
     res = c.uploadHW(assignmentNum,duedate,hwfile)
 
-    #by default, the created assignment will be worth 10 points.  To change this, instead run:
+By default, the created assignment will be worth 10 points.  To change this, instead of the last line, run:
+
+.. code-block:: python
+
     res = c.uploadHW(assignmentNum,duedate,hwfile,totscore=N) #N must be an integer
 
-    #by default, the created assignment will be immediate visible. To change this, instead run:
+By default, the created assignment will be immediately visible. To change this, instead of the last line run:
+.. code-block:: python
+
     res = c.uploadHW(assignmentNum,duedate,hwfile,unlockDelta=M)
-    #where M is a positive float and represents the number of days prior to the due date to unlock the assignment.
+
+where ``M`` is a positive float and represents the number of days prior to the due date to unlock the assignment.
 
 
 Injecting Homework Text into the Canvas Assignment
@@ -87,8 +96,108 @@ See :ref:`Latex2Canvas` for further details.
     ``hwfile`` must point at the PDF in the directory where it was compiled, and all other required files (figures, etc.) must reside in this same path.
 
 
+Homework Self-Assessments
+---------------------------
+
+``cornellGrading`` provides two methods for implementing student self-assessment.  This section describes how to use Canvas New Quizzes to implement this workflow.  Alternatively, you can create :ref:`qualtricsselfassessments`, described below. 
+
+New Quiz-based self-assessments are implemented by method :py:meth:`~cornellGrading.cornellGrading.cornellGrading.setupNewQuizSelfAssessment`.  This method:
+
+#. Generates a Canvas New Quiz with multiple choice questions corresponding to each question on your homework assignment that are worth 0 to N points (where you specify N, default 3).  Each answer earns the equivalent number of points. 
+#. Generates a Canvas page with your reference solutions (employing :ref:`Latex2Canvas`) from a LaTeX source file). 
+
+Assuming you set up the assignment with the name ``HW?`` (where ? is the assignment number), the self-assessment for the assignment can be set up by running:
+
+.. code-block:: python
+    
+    assignmentNum = 1 # integer value, update to actual assignment number
+    nprobs = 5 # integer, update to actual number of problems 
+    solfile = "/Full/Path/To/Solution/File"
+
+    c.setupNewQuizSelfAssessment(
+        assignmentNum,
+        nprobs,
+        solfile,
+        npoints=3,  # possible points per problem
+        selfGradeDueDelta=6,  # number of days after release that self-assessment is due
+        selfGradeReleasedDelta=3,  # number of days after hw due dat that solutions are released
+    )
+
+
+The ``solfile`` input must be a string with the full path on disk to the solution file, which must be a PDF or tex source file, and must be in the same folder as the full document source and all figures/inputs. 
+
+
+Including Additional Self-Assessment Questions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can include additional questions in New Quiz-based self-assessments.  For example, say you wanted students to write a short essay assessing their overall performance.  This question could be defined as:
+
+.. code-block:: python
+
+    item_body = (
+        "<p><span>Please write a brief self-assessment of your performance on "
+        "this assignment.&nbsp; Focus in particular on skills/concepts that you "
+        "want to work on in subsequent assignments.</span></p>"
+    )
+    selfassq = {
+        "position": 0,
+        "points_possible": 0.0,
+        "properties": {},
+        "entry_type": "Item",
+        "entry_editable": True,
+        "stimulus_quiz_entry_id": "",
+        "status": "mutable",
+        "entry": {
+            "title": "Self-Assessment",
+            "item_body": item_body,
+            "calculator_type": "none",
+            "interaction_data": {
+                "rce": True,
+                "essay": None,
+                "word_count": False,
+                "file_upload": False,
+                "spell_check": False,
+                "word_limit_max": None,
+                "word_limit_min": None,
+                "word_limit_enabled": False,
+            },
+            "properties": {
+                "word_limit": False,
+                "spell_check": False,
+                "word_limit_max": 0,
+                "word_limit_min": 0,
+                "show_word_count": False,
+                "rich_content_editor": False,
+            },
+            "scoring_data": {"value": ""},
+            "answer_feedback": {},
+            "scoring_algorithm": "None",
+            "interaction_type_slug": "essay",
+            "feedback": {"neutral": "", "correct": "", "incorrect": ""},
+        },
+    }
+
+Alternatively, you can ask students binary (Yes/No) questions.  For example, if you want students to verify whether they formatted plots properly:
+
+.. code-block:: python
+
+    figureq = c.genBinaryNewQuizItem(
+        2,
+        "Were all of your plots appropriately formatted and labeled?",
+        "Plot Formatting",
+    )
+
+To include additional questions in the self-assessment quiz, use the ``extraQuestions`` keyword input to :py:meth:`~cornellGrading.cornellGrading.cornellGrading.setupNewQuizSelfAssessment`. This input takes a list of question definition dictionaries.  So, if you wished to only include the essay question defined above, you would set ``extraQuestions = [selfassq]`` and if you wanted to include both questions, you would set ``extraQuestions = [selfassq, figureq]``. 
+
+
+.. _qualtricsselfassessments:
+
+Qualtrics-Based Self-Assessments
+------------------------------------
+As an alternative to new quiz-based self-assessments, you can implement self-assessments via Qualtrics surveys.
+
 Create a HW Survey
---------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number (i.e., 'HW1', 'HW2', etc.).
 
@@ -117,7 +226,7 @@ If your course roster has changed, be sure to run ``c.updateCourseMailingList()`
 You can also share the created survey with another qualtrics user (say, your TA).  To do so, you will need them to give you their Qualtrics id, which they can find in the Qualtrics IDs page ([see Qualtrics API Token ](#qualtrics-api-token)). Make sure you get their ID, and not their API token.  To enable sharing, add ``sharewith=qualtricsid`` to the ``setupPrivateHW`` call, where ``qualtricsid`` is id string to share with.
 
 Upload Solutions and Create Self-Grading Assignment
-------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In addition to creating the HW survey in qualtrics and injecting links into the assignment comments, ``setupPrivateHW`` can also create a self-grading assignment on Canvas with the homework solutions and a due date that is different from the due date of the original assignment.  This functionality is toggled by passing ``createAss=True`` to the ``setupPrivateHW`` call.  The other relevant keyword arguments are:
 
@@ -143,7 +252,7 @@ This will create a  'Homework Self-Grading' assignment group (if it does not alr
 
 
 Grab Self-Grading Results and Upload to Canvas
-------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Finally, once students have completed their self-assessment via Qualtrics, we need to move their scores into the Canvas gradebook.  This is done via the :py:meth:`~.cornellGrading.selfGradingImport` method.  Again, this assumes that you have set up your assignment with the name 'HW?' where ? is the assignment number, and also that you have assigned a point value to the assignment in Canvas (if you're using the single-question survey variant, and not checking for late submissions, the latter is not required).
 

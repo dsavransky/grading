@@ -35,9 +35,9 @@ Assuming you have instantiated a ``cornellGrading`` object as ``c``, as above, y
 
     res = c.latex2page(fname, title)
 
-where `fname` is the full path to either the LaTeX source or the PDF compiled from the source (which must be in the same directory as the source), and `title` is the title for the generated page.  Other method options include:
+where ``fname`` is the full path to either the LaTeX source or the PDF compiled from the source (which must be in the same directory as the source), and ``title`` is the title for the generated page.  Other method options include:
 
-* ``insertPDF=True`` will also include a link to the compiled PDF in the generated page (in this case `fname` must be the compiled PDF)
+* ``insertPDF=True`` will also include a link to the compiled PDF in the generated page (in this case ``fname`` must be the compiled PDF)
 * ``published=True`` will automatically publish the page (the page is unpublished by default).
 
 

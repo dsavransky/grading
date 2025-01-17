@@ -52,6 +52,9 @@ In order to also install requirements needed push LaTeX into Canvas HTML, do: ::
 
     To upgrade to the latest version, just append ``--upgrade`` to whichever install command you originally used.  For example: ``pip install --upgrade --user cornellGrading``.
 
+.. note::
+
+   If your shell is zsh, you may need to add escape characters to all instances of square brackets (e.g. ``\[latex2html\]``).
 
 Canvas API Token (Required)
 -----------------------------

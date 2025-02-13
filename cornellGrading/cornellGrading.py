@@ -2426,7 +2426,7 @@ class cornellGrading:
         return q
 
     def genNewQuizMultipleChoice(
-        self, question, options, correct_ind, points=1, position=0
+        self, question, options, correct_ind, points=1, position=0, fightml=None
     ):
         """Generate a new quiz-style multiple choice question dictionary
 
@@ -2441,6 +2441,8 @@ class cornellGrading:
                 Number of points for correct answer (defaults to 1).
             position (int):
                 Position of question in quiz.  Defaults to 0
+            fightml (str, optional):
+                HTML string from figure upload. Defaults to None.
 
         Returns:
             dict:
@@ -2462,6 +2464,10 @@ class cornellGrading:
                 }
             )
 
+        qtxt = f"<p>{convalllatex(question)}</p>"
+        if fightml is not None:
+            qtxt = f"{qtxt}\n<p>{fightml}</p>"
+
         q = {
             "position": position,
             "points_possible": float(points),
@@ -2472,7 +2478,7 @@ class cornellGrading:
             "status": "mutable",
             "entry": {
                 "title": question,
-                "item_body": f"<p>{convalllatex(question)}</p>",
+                "item_body": qtxt,
                 "calculator_type": "none",
                 "interaction_data": {"choices": choices},
                 "properties": {
@@ -2604,27 +2610,34 @@ class cornellGrading:
             # process figure (if any)
             if not (pandas.isna(row.Figure)):
                 impath = os.path.join(imagePath, f"{row.Figure}.png")
-                assert os.path.exists(impath), f"Can not locate {impath}."
-                status, fig = figFolder.upload(impath)
-                assert status, f"Failed to upload {impath}."
+                fightml = self.uploadFigure(impath, figFolder)
             else:
-                fig = None
+                fightml = None
 
             # create and add the question depending on quiz type
             if isinstance(quiz, canvasapi.new_quiz.NewQuiz):
                 q = self.genNewQuizMultipleChoice(
-                    question, opts.astype(str), correct_ind, position=k + 1, fig=fig
+                    question,
+                    opts.astype(str),
+                    correct_ind,
+                    position=k + 1,
+                    fightml=fightml,
                 )
 
                 self.addNewQuizItem(quiz.id, q)
             else:
                 q = self.genQuizMultipleChoice(
-                    question, opts.astype(str), correct_ind, position=k + 1, fig=fig
+                    question,
+                    opts.astype(str),
+                    correct_ind,
+                    position=k + 1,
+                    fightml=fightml,
                 )
                 quiz.create_question(question=q)
 
     def uploadFigure(self, impath, figFolder):
-        """Upload a figure and generate an HTML string for embedding it
+        """Upload a figure and generate an HTML string for embedding it. If filename
+        already exists in the folder, use that rather than overwriting.
 
         Args:
             impath (str):
@@ -2637,9 +2650,22 @@ class cornellGrading:
                 HTML string representing the figure
         """
 
-        assert os.path.exists(impath), f"Can not locate {impath}."
-        status, fig = figFolder.upload(impath)
-        assert status, f"Failed to upload {impath}."
+        filename = os.path.split(impath)[-1]
+        haveFile = False
+        for file in figFolder.get_files():
+            if file.filename == filename:
+                haveFile = True
+                fig = {
+                    "id": file.id,
+                    "uuid": file.uuid,
+                    "display_name": file.display_name,
+                }
+                break
+
+        if not haveFile:
+            assert os.path.exists(impath), f"Can not locate {impath}."
+            status, fig = figFolder.upload(impath)
+            assert status, f"Failed to upload {impath}."
 
         figsrc = (
             f"{self.canvas._Canvas__requester.original_url}/courses/"

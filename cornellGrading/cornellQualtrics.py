@@ -690,6 +690,79 @@ class cornellQualtrics:
 
         return response.json()["result"]
 
+    def exportUploadedFiles(self, surveyId, DataExportTags, saveDir=None):
+        """Download all user uploaded files associated with specific questions from one
+        survey
+
+        Args:
+            surveyId (str):
+                Unique id string of survey.  Get either from web interface or via
+                getSurveyId
+            DataExportTags (list):
+                Data Export Tags for all questions with uploaded files
+            saveDir (str, optional):
+                Full path to save location.  If None (default) uses system tmp dir
+
+        Returns:
+            str:
+                Full path to directory where the survey results and all files are saved.
+                The survey results will be a CSV file with a filename that is the same
+                as the survey name, except with any colons replaced with underscores.
+                The files will be named as: ResponseId-FileId-fileName where ResponseId
+                and FileId match the entries in the survey results and fileName is the
+                original fileName of the upload.
+
+        Notes:
+            https://api.qualtrics.com/1071635f5a615-retrieve-a-user-uploaded-file
+
+        """
+
+        # get survey name from ID
+        if surveyId not in self.surveyIds:
+            self.listSurveys()
+            assert surveyId in self.surveyIds, f"Survey ID {surveyId} not found."
+
+        surveyname = self.surveyNames[self.surveyIds == surveyId][0]
+
+        # synthesize base URL
+        baseUrl = (
+            f"https://{self.dataCenter}{self.qualtricsapi}surveys/{surveyId}/responses/"
+        )
+
+        # export survey results and read output
+        tmpdir = self.exportSurvey(surveyId, saveDir=saveDir)
+        if ":" in surveyname:
+            surveyname = surveyname.replace(":", "_")
+        surveyfile = os.path.join(tmpdir, surveyname + ".csv")
+        assert os.path.isfile(surveyfile), "Survey results not where expected."
+        surveyres = pandas.read_csv(surveyfile, header=[0, 1, 2])
+
+        # get all response IDs
+        responseIds = surveyres["ResponseId"].values.flatten()
+
+        # loop through each data export tag and download the associated file for each
+        # response
+        for DataExportTag in DataExportTags:
+            # get all ids and filenames for current tag
+            fids = surveyres[f"{DataExportTag}_Id"].values.flatten()
+            fnames = surveyres[f"{DataExportTag}_Name"].values.flatten()
+
+            # loop through everything
+            for rid, fid, fname in zip(responseIds, fids, fnames):
+                durl = f"{baseUrl}{rid}/uploaded-files/{fid}"
+                requestDownload = requests.request(
+                    "GET", durl, headers=self.headers_post, stream=True
+                )
+                assert (
+                    requestDownload.status_code == 200
+                ), f"Download failed for file {fid} on response {rid}."
+
+                outname = os.path.join(tmpdir, f"{rid}-{fid}-{fname}")
+                with open(outname, "wb") as ff:
+                    ff.write(requestDownload.content)
+
+        return tmpdir
+
     def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true", saveDir=None):
         """Download and extract survey results
 
@@ -701,7 +774,7 @@ class cornellQualtrics:
                 Format to download (must be csv, tsv, or spss)
             useLabels (str):
                 Use choice labels ("true" or "false", defaults "true")
-            saveDir (str):
+            saveDir (str, optional):
                 Full path to save location.  If None (default) uses system tmp dir
 
         Returns:

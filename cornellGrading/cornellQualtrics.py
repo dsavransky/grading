@@ -1185,6 +1185,33 @@ class cornellQualtrics:
 
         return response.json()["result"]["BlockID"]
 
+    def updateSurveyBlock(self, surveyId, blockId, blockData):
+        """Add block to existing Survey
+
+        Args:
+            surveyId (str):
+                Survey ID string as returned by getSurveyId
+            blockId (str):
+                Block ID string
+            blockData (dict):
+                Full block definition dictionary
+
+        Returns:
+            dict:
+                response json payload
+
+        ..notes::
+            See https://api.qualtrics.com/54c20622ffd25-update-block
+
+        """
+        baseUrl = "https://{0}{1}survey-definitions/{2}/blocks/{3}".format(
+            self.dataCenter, self.qualtricsapi, surveyId, blockId
+        )
+
+        response = requests.put(baseUrl, json=blockData, headers=self.headers_put)
+        assert response.status_code == 200, "Couldn't update block."
+
+        return response.json()
 
     def getSurveyQuotas(self, surveyId):
         """Get all quotas for a survey

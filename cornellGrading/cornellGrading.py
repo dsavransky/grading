@@ -2682,3 +2682,88 @@ class cornellGrading:
         )
 
         return fightml
+
+    def importPollEvScores(
+        self,
+        pollfile,
+        assname,
+        exempt_netids=None,
+        max_correct_points=3,
+        participation_points=2,
+        participation_fraction=0.8,
+        assgrp_name="Polls",
+    ):
+        """
+        Read in Poll Everywhere gradebook CSV file, compute polling score, create a new
+        Canvas assignment, and upload all scores.
+
+        Args:
+            pollfile (str):
+                Full path on disk to poll results csv
+            assname (str):
+                Name of canvas assignment to create for poll
+            exempt_netids (list, Optional):
+                All netids that should be graded based on participation only.
+                Defaults to None.
+            max_correct_points (float):
+                Maximum points given for correct answers (assuming 1 point per
+                question). Defaults to 3.
+            participation_points (float):
+                Points given for participation. Defaults to 2.
+            participation_fraction (float):
+                Fraction of questions that must be answered to get participation points.
+                Defaults to 0.8.
+            assgrp_name (str):
+                Name of assignment group to place results.  Defaults to 'Polls'
+
+        Returns:
+            pandas.DataFrame:
+                The original and calculated data.
+
+        """
+
+        assert os.path.exists(pollfile), f"{pollfile} not found."
+
+        # Read score file and discard extra rows
+        data = pandas.read_csv(pollfile)
+        data = data.loc[data["Email"].notnull()]
+
+        # Add netid column
+        data["NetID"] = [e.split("@")[0] for e in data["Email"].values]
+
+        # Compute quiz score
+        quizscore = data["Total points earned"].values
+        quizscore[quizscore > max_correct_points] = max_correct_points
+        data["quizscore"] = quizscore
+
+        # Compute participation score
+        totanswered = data["Total answered"].values
+        participationscore = np.zeros(quizscore.shape)
+        participationscore[
+            totanswered >= np.floor(totanswered.max() * participation_fraction)
+        ] = participation_points
+        data["participationscore"] = participationscore
+
+        # Process exempt netids
+        if exempt_netids is not None:
+            data.loc[data["NetID"].isin(exempt_netids), "quizscore"] = 0
+            data.loc[
+                data["NetID"].isin(exempt_netids)
+                & (data["participationscore"] == participation_points),
+                "participationscore",
+            ] = 5
+
+        # calculate final score
+        data["totalscore"] = data["quizscore"].values + data["participationscore"].values
+
+        # crate assignment and upload scores
+        assgrp = self.getAssignmentGroup(assgrp_name)
+
+        ass = self.createAssignment(
+            assname,
+            assgrp.id,
+            points_possible=max_correct_points + participation_points,
+        )
+        self.uploadScores(ass, data["NetID"].values, data["totalscore"].values)
+
+        return data

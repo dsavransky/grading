@@ -2029,7 +2029,6 @@ class cornellGrading:
             assignmentNum (int):
                 Assignment names will be of the form "[preamble] HW#"
                 where # is `assignmentNum`. See also `preamble` input.
-
             preamble (str):
                 If not "", then assignment name will be "[preamble] HW#". Otherwise,
                 name will be "HW#".  Defaults to ""
@@ -2754,7 +2753,9 @@ class cornellGrading:
             ] = 5
 
         # calculate final score
-        data["totalscore"] = data["quizscore"].values + data["participationscore"].values
+        data["totalscore"] = (
+            data["quizscore"].values + data["participationscore"].values
+        )
 
         # crate assignment and upload scores
         assgrp = self.getAssignmentGroup(assgrp_name)
@@ -2765,5 +2766,128 @@ class cornellGrading:
             points_possible=max_correct_points + participation_points,
         )
         self.uploadScores(ass, data["NetID"].values, data["totalscore"].values)
+
+        return data
+
+    def proc_gradescope_file(
+        self,
+        datafile,
+        extensions=None,
+        latePenalty=0.25,
+        maxDaysLate=3,
+    ):
+        """
+        Read in a gradescope output csv file and compute grades with linear time penalty
+
+        Args:
+            datafile (str):
+                Full path to gradescope csv output
+            extensions (iterable, optional):
+                list of netids for students with allowed extensions (no points deducted
+                for late submissions)
+            latePenalty (float):
+                Fraction of score to remove for lateness (defaults to 0.25).
+                Must be in [0,1].
+            maxDaysLate (float):
+                After this number of days past deadline, HW gets zero. Defaults to 3.
+
+        Returns:
+            pandas.Dataframe:
+                 The original and calculated data. The "Final Score" column will contain
+                 the fraction of total points (must be scaled by the assignment total
+                 points for the final score).
+
+        """
+
+        assert os.path.exists(datafile), f"{datafile} not found."
+
+        # read in gradescope CSV output and drop rows without submissions
+        data = pandas.read_csv(datafile)
+        data = data.loc[data["Status"] != "Missing"].reset_index(drop=True)
+
+        # add NetID column and compute late times
+        data["NetID"] = [e.split("@")[0] for e in data["Email"].values]
+        data["Lateness"] = pandas.to_timedelta(
+            data["Lateness (H:M:S)"]
+        ) / np.timedelta64(1, "h")
+
+        # check for over maximum late deadline
+        if maxDaysLate is not None:
+            bad = data["Lateness"] > (maxDaysLate * 24)
+            if bad.any():
+                print("Over maximum late deadline:")
+                for j, row in data.loc[bad].iterrows():
+                    print(
+                        f'{row["First Name"]} {row["Last Name"]} '
+                        f'({row["NetID"]}): {row["Lateness"]}'
+                    )
+
+        if extensions is not None:
+            data.loc[data["NetID"].isin(extensions), "Lateness"] = 0
+
+        # compute final scores
+        maxpoints = data["Max Points"].values[0]
+        data["Final Score"] = (
+            data["Total Score"] / maxpoints
+            - data["Lateness"] / (maxDaysLate * 24) * latePenalty
+        )
+
+        # ensure no negative scores
+        data.loc[data["Final Score"] < 0, "Final Score"] = 0
+
+        return data
+
+    def importGradescopeScores(
+        self,
+        datafile,
+        assignmentNum,
+        preamble="",
+        extensions=None,
+        latePenalty=0.25,
+        maxDaysLate=3,
+    ):
+        """
+        Read in a gradescope output csv file and compute grades with linear time penalty
+
+        Args:
+            datafile (str):
+                Full path to gradescope csv output
+            assignmentNum (int):
+                Assignment names will be of the form "[preamble] HW#"
+                where # is `assignmentNum`. See also `preamble` input.
+            preamble (str):
+                If not "", then assignment name will be "[preamble] HW#". Otherwise,
+                name will be "HW#".  Defaults to ""
+            extensions (iterable, optional):
+                list of netids for students with allowed extensions (no points deducted
+                for late submissions)
+            latePenalty (float):
+                Fraction of score to remove for lateness (defaults to 0.25).
+                Must be in [0,1].
+            maxDaysLate (float):
+                After this number of days past deadline, HW gets zero. Defaults to 3.
+
+        Returns:
+            pandas.Dataframe:
+                 The original and calculated data. The "Final Score" column is the
+                 actual final score
+
+        """
+
+        # grab assignment and total score
+        hwname, hw = self.getHomework(assignmentNum, preamble=preamble)
+        totscore = hw.points_possible
+
+        data = self.proc_gradescope_file(
+            datafile,
+            extensions=extensions,
+            latePenalty=latePenalty,
+            maxDaysLate=maxDaysLate,
+        )
+
+        data["Final Score"] *= totscore
+
+        # post scores
+        self.uploadScores(hw, data["NetID"].values, data["Final Score"].values)
 
         return data

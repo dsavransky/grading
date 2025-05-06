@@ -231,7 +231,7 @@ class cornellGrading:
 
         return hw
 
-    def getAssignmentGroup(self, groupName):
+    def getAssignmentGroup(self, groupName, create=True):
         """Locate assignment group by name
 
         Args:
@@ -239,6 +239,9 @@ class cornellGrading:
                 Name of assignment group to return.  Must be exact match.
                 To see all assignments do:
                 >> for a in c.course.get_assignment_groups(): print(a)
+            create (bool):
+                If True, create the group if it doesn't exist.  If False, and group is
+                not found, an AssertionError is raised. Defaults True
 
         Returns:
             canvasapi.assignment.AssignmentGroup:
@@ -252,6 +255,9 @@ class cornellGrading:
             if t.name == groupName:
                 group = t
                 break
+
+        if (group is None) and create:
+            group = self.createAssignmentGroup(groupName)
 
         assert group is not None, "Could not find assignment group %s" % groupName
 
@@ -2549,7 +2555,7 @@ class cornellGrading:
 
         Args:
             allqs (pandas.DataFrame):
-                Table of questions and answers, formatted in PolEV CSV upload style
+                Table of questions and answers, formatted in PollEv CSV upload style
             quiz (canvasapi.new_quiz.NewQuiz or canvasapi.quiz.Quiz):
                 Quiz object
             imagePath (str, optional):
@@ -2868,9 +2874,13 @@ class cornellGrading:
                 After this number of days past deadline, HW gets zero. Defaults to 3.
 
         Returns:
-            pandas.Dataframe:
-                 The original and calculated data. The "Final Score" column is the
-                 actual final score
+            tuple:
+                data (pandas.Dataframe):
+                    The original and calculated data. The "Final Score" column is the
+                    actual final score
+                totscore (float):
+                    Total assignment points
+
 
         """
 
@@ -2890,4 +2900,175 @@ class cornellGrading:
         # post scores
         self.uploadScores(hw, data["NetID"].values, data["Final Score"].values)
 
-        return data
+        return data, totscore
+
+    def loadQuestionBank(self, qfile):
+        """Read in excel spreadsheet of Poll Everywhere style question definitions
+
+        Args:
+            qfile (str):
+                Full path on disk to question bank
+
+        Returns:
+            pandas.DataFrame:
+                The contents of the file, augmented with "Correct Answer" and
+                "Title+Answer" columns
+
+        .. note::
+            The poll everywhere import format is described here:
+            https://support.polleverywhere.com/hc/en-us/articles/1260801546530-Import-questions
+            The excel file is expected to have the same columns (Activity, Type, Title
+            and multiple Option columns), but may also include a Figure column for
+            specifying figures to associate with questions.  Questions+correct answers
+            must be unique.  There must be exactly 1 correct answer per question.
+
+        """
+
+        # read in file and identify answer cols. Cast all answer cols to strings
+        allqs = pandas.read_excel(qfile)
+        optcols = allqs.columns[allqs.columns.str.startswith("Option")]
+        allqs[optcols] = allqs[optcols].astype(str)
+
+        # remove any extraneous white space in question and answer cols
+        for col in optcols.append(pandas.Index(["Title"])):
+            allqs[col] = (
+                allqs[col]
+                .str.replace(r"\s\s+", " ", regex=True)
+                .str.replace("’", "'")
+                .str.strip()
+            )
+        # put nans back to NaNs
+        allqs.replace("nan", np.nan, inplace=True)
+
+        # generate unique signature for each question (title+correct answer)
+        correct_answers = []
+        missing_answers = []
+        for j, row in allqs.iterrows():
+            try:
+                tmp = row[optcols].str.startswith("***")
+            except AttributeError:
+                correct_answers.append("")
+                missing_answers.append(j)
+                continue
+            tmp[tmp.isna()] = False
+            if np.where(tmp)[0].size != 1:
+                correct_answers.append("")
+                missing_answers.append(j)
+            else:
+                correct_answers.append(row[optcols][tmp].values[0].strip("***"))
+        allqs["Correct Answer"] = correct_answers
+        allqs["Title+Answer"] = allqs[["Title", "Correct Answer"]].agg(" ".join, axis=1)
+
+        # check for missing/multiple answers
+        if len(missing_answers) > 0:
+            print("Found questions with missing or multiple correct answers:")
+            for j in missing_answers:
+                print(allqs.loc[j, "Title"])
+            print("Removing these questions.")
+            print("\n")
+            allqs = allqs.drop(index=missing_answers).reset_index(drop=True)
+
+        # require unique question set
+        uq, uind, uc = np.unique(
+            allqs["Title+Answer"], return_counts=True, return_index=True
+        )
+        if np.any(uc > 1):
+            print("Non-unique questions found:")
+            for nuq in uq[uc > 1]:
+                print(nuq)
+            print("Removing duplicates.")
+            print("\n")
+            allqs = allqs.loc[np.sort(uind)]
+
+        return allqs
+
+    def proc_pollEv_files(self, pollfiles):
+        """Process a batch of Poll Everywhere gradebooks and collect results for each
+        student
+
+        Args:
+            pollfiles (list):
+                list of strings of full paths to poll gradebook files
+
+        Returns:
+            tuple:
+                allres (pandas.DataFrame):
+                    All of the polling results for all students
+                repeatedqs (list):
+                    List of questions appearing in multiple polls.  Only the first
+                    instance will be included in allres
+                qlookup (dict):
+                    Dictionary of all questions and which poll files they came from
+
+        """
+
+        # create dataframe for output and initialize storage lists
+        allres = pandas.DataFrame({"Name": self.names, "NetID": self.netids})
+        allres = allres.loc[allres["Name"] != "Student, Test"].reset_index(drop=True)
+        repeatedqs = []
+        qlookup = {}
+
+        # define regexp for tracking repeated questions
+        repeatedqr = re.compile(r'(^.+)?(?="\.\d+)')
+
+        for j, pollfile in enumerate(pollfiles):
+            data = pandas.read_csv(pollfile)
+            data = data.loc[data["Email"].notnull()]
+            data["NetID"] = [e.split("@")[0] for e in data["Email"].values]
+
+            data = data.loc[data["NetID"].isin(self.netids)].reset_index(drop=True)
+
+            # identify columns with points
+            pointcols = data.columns.str.startswith("Points earned")
+            pointcolinds = np.where(pointcols)[0]
+
+            # remove any questions with no correct answers
+            badinds = []
+            for ind in pointcolinds:
+                if data[data.columns[ind]].astype(float).max() != 1:
+                    badinds.append(ind)
+            if len(badinds) > 0:
+                pointcolinds = np.array(list(set(pointcolinds) - set(badinds)))
+
+            # the question columns should all be adjacent to the point columns
+            quescolinds = pointcolinds - 1
+
+            # loop through questions and gather results
+            tmp = {"NetID": data["NetID"].values}
+            for q, p in zip(quescolinds, pointcolinds):
+                # identify question title and handle repeated titles
+                title = data.columns[q]
+                tmp2 = repeatedqr.match(title)
+                if tmp2 is not None:
+                    title = tmp2.group(1)
+
+                # strip out any extraneous whitespace in title
+                title = re.sub(r"\s\s+", " ", title.strip('"')).strip()
+
+                # identify correct answer
+                correct_answer = data.loc[
+                    data[data.columns[p]].astype(float) == 1, data.columns[q]
+                ].values[0]
+                if isinstance(correct_answer, float):
+                    correct_answer = int(correct_answer)
+                elif isinstance(correct_answer, str):
+                    # strip out any extraneous whitespace in answer
+                    correct_answer = re.sub(r"\s\s+", " ", correct_answer).strip()
+
+                # synthesize title + correct answer (should be unique)
+                title_plus_correct = f"{title} {correct_answer}"
+
+                # check if we've already encountered this question
+                if title_plus_correct in allres:
+                    repeatedqs.append(title_plus_correct)
+                    continue
+
+                # add question to results of this poll and the lookup table
+                tmp[title_plus_correct] = data[data.columns[p]].astype(float).values
+                qlookup[title_plus_correct] = pollfile
+
+            # update overall output with this poll's results
+            tmp = pandas.DataFrame(tmp)
+            allres = allres.merge(tmp, on="NetID", how="outer")
+
+        return allres, repeatedqs, qlookup

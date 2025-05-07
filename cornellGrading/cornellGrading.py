@@ -160,6 +160,12 @@ class cornellGrading:
 
         self.coursename = course.name
 
+        # populate testuser info if present
+        if "Student, Test" in self.names:
+            tmp = self.names == "Student, Test"
+            self.testuserid = self.ids[tmp][0]
+            self.testusernetid = self.netids[tmp][0]
+
     def localizeTime(self, duedate, duetime="17:00:00", tz="US/Eastern"):
         """Helper method for setting the proper UTC time while being
         DST-aware
@@ -3072,3 +3078,136 @@ class cornellGrading:
             allres = allres.merge(tmp, on="NetID", how="outer")
 
         return allres, repeatedqs, qlookup
+
+    def genMissedQuestionBank(self, allres, nques):
+        """
+
+        Args:
+            allres (pandas.DataFrame):
+                All poll results.  Output from `proc_pollEv_files`
+            nques (int):
+                Number of questions per quiz
+
+        Returns:
+            pandas.DataFrame:
+                Question banks for individualized quizzes. Each column represents each
+                student in the course.
+
+        """
+
+        # identify question columns
+        qcols = np.array(
+            list(set(allres.columns.values) - set(["Name", "NetID", "Missed"]))
+        )
+
+        # create missed question column
+        allres["Missed"] = 0
+
+        # loop through all students
+        out = {}
+        for netid in self.netids:
+            if netid == self.testusernetid:
+                continue
+
+            row = allres.loc[allres["NetID"] == netid]
+
+            # figure out which questions to ask
+            missed = row[qcols].isna() | (row[qcols] == 0)
+            missed = np.where(missed.values.squeeze())[0]
+            allres.loc[allres["NetID"] == netid, "Missed"] = len(missed)
+
+            if len(missed) == nques:
+                qinds = missed
+            elif len(missed) > nques:
+                qinds = np.random.choice(missed, size=nques, replace=False)
+            else:
+                right = list(set(range(len(qcols))) - set(missed))
+                qinds = np.hstack(
+                    (
+                        missed,
+                        np.random.choice(
+                            right, size=nques - len(missed), replace=False
+                        ),
+                    )
+                )
+
+            out[netid] = qcols[qinds]
+
+        quizbanks = pandas.DataFrame(out)
+
+        return quizbanks
+
+    def genPersonalizedQuizzes(
+        self,
+        quizbanks,
+        allqs,
+        quizname,
+        assgrp,
+        duedate,
+        unlockat,
+        imagePath=None,
+        instructions="",
+        time_limit=None,
+    ):
+        """
+
+        Args:
+            quizbanks (pandas.DataFrame):
+                Personalized quiz banks (each student is one column). Output of
+                `genMissedQuestionBank`.
+            allqs (pandas.DataFrame):
+                Master question bank.  Output of `loadQuestionBank`.
+            quizname (str):
+                Quiz name
+            assgrp (canvasapi.assignment.AssignmentGroup):
+                Assignment group where to put quiz
+            duedate (datetime.datetime):
+                Quiz due date and time
+            unlockat (datetime.datetime):
+                Quiz unlock date and time
+            imagePath (str, optional):
+                Full path to image folder (only needed for quizzes with figures)
+            instructions (str):
+                Quiz instructions. Defaults to empty string.
+            time_limit (float, optional):
+                Quiz time limit in minutes. Defaults to None.
+
+        """
+
+        nques = len(quizbanks)
+        for netid in quizbanks.columns:
+            print(netid)
+            someqs = allqs.loc[
+                allqs["Title+Answer"].isin(quizbanks[netid])
+            ].reset_index(drop=True)
+            assert len(someqs) == nques, f"Incomplete question set for {netid}"
+
+            quizdef = {
+                "title": f"{quizname} for {netid}",
+                "description": instructions,
+                "quiz_type": "assignment",
+                "assignment_group_id": assgrp.id,
+                "time_limit": time_limit,
+                "shuffle_answers": False,
+                "one_time_results": True,
+                "allowed_attempts": 1,
+                "one_question_at_a_time": False,
+                "published": False,  # super important!
+                "only_visible_to_overrides": True,  # super important!
+            }
+
+            q1 = self.course.create_quiz(quiz=quizdef)
+            self.genQuizFromPollEv(someqs, q1, imagePath=imagePath)
+
+            # now we can publish
+            q1.edit(quiz={"published": True})
+
+            # create assignment override to set due and unlock dates and the target student
+            quizass = self.course.get_assignment(q1.assignment_id)
+            overridedef = {
+                "student_ids": list(self.ids[self.netids == netid]),
+                "title": "1 student",
+                "due_at": duedate.strftime("%Y-%m-%dT%H:%M:%SZ"),  # must be UTC
+                "unlock_at": unlockat.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            quizass.create_override(assignment_override=overridedef)

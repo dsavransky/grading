@@ -53,3 +53,37 @@ def convlatex(texstr):
     )
 
     return qtxt
+
+
+def email2netid(emails):
+    """Transform emails to netids
+
+    Args:
+        emails (iterable):
+            List or array of strings containing email addresses
+
+    Returns:
+        list:
+            List of netids (part of email before @)
+
+    """
+
+    return [e.split("@")[0] for e in emails]
+
+
+def netid2email(netids, domain="cornell.edu"):
+    """Transform emails to netids
+
+    Args:
+        netids (iterable):
+            List or array of strings containing netids (usernames)
+        domain (str):
+            Email domain.  Defaults to "cornell.edu"
+
+    Returns:
+        list:
+            List of emails
+
+    """
+
+    return [f"{n}@{domain}" for n in netids]

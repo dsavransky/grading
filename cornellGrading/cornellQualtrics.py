@@ -244,12 +244,14 @@ class cornellQualtrics:
 
         return mailinglistid
 
-    def genMailingList(self, listName):
+    def genMailingList(self, listName, libraryId=None):
         """Generate mailing list
 
         Args:
             listName (str):
                 List name
+            libraryId (str, optional):
+                Library ID. If None, will attempt to identify it automatically
 
         Returns:
             str:
@@ -263,14 +265,14 @@ class cornellQualtrics:
             headers=self.headers_tokenOnly,
         )
 
-        libId = None
-        for el in tmp.json()["result"]["elements"]:
-            if "UR_" in el["libraryId"] or "URH_" in el["libraryId"]:
-                libId = el["libraryId"]
-                break
-        assert libId is not None, "Could not identify library id."
+        if libraryId is None:
+            for el in tmp.json()["result"]["elements"]:
+                if "UR_" in el["libraryId"] or "URH_" in el["libraryId"]:
+                    libraryId = el["libraryId"]
+                    break
+            assert libraryId is not None, "Could not identify library id."
 
-        data = {"libraryId": libId, "name": listName}
+        data = {"libraryId": libraryId, "name": listName}
 
         response = requests.post(
             "https://{0}{1}mailinglists".format(self.dataCenter, self.qualtricsapi),
@@ -1456,4 +1458,86 @@ class cornellQualtrics:
 
         return libraryId
 
+    def gen_thankyou(self, msgdesc, libraryId):
+        """ "Create thank you message or return id of existing message
 
+        Args:
+            msgdesc (str):
+                Message description.  Should be unique.
+            libraryId (str):
+                Library ID
+
+        Returns:
+            str:
+                Message ID
+
+        """
+
+        thanksmsgid = None
+        thanksmsgdesc = f"{msgdesc} Completed"
+        for m in self.listLibraryMessages(libraryId):
+            if m["description"] == msgdesc:
+                thanksmsgid = m["id"]
+                break
+
+        if thanksmsgid is None:
+            print(f"Thank you message {msgdesc} not found. Creating new message")
+
+            thanksmsg = (
+                f"""Thank you for completing the {msgdesc}"""
+                """.&nbsp; Your responses have been recorded.&nbsp; If you need to """
+                """make any changes to your responses, please email """
+                """maegrad@cornell.edu."""
+            )
+            thanksmsgid = self.createLibraryMessage(
+                libraryId,
+                thanksmsgdesc,
+                thanksmsg,
+                category="thankYou",
+            )
+
+        return thanksmsgid
+
+    def gen_reminder(self, msgdesc, libraryId, duedate):
+        """Create reminder message or return id of existing message
+
+        Args:
+            msgdesc (str):
+                Message description.  Should be unique.
+            libraryId (str):
+                Library ID
+            duedate (str):
+                String describing the due date
+
+        Returns:
+            str:
+                Message ID
+
+        """
+
+        remindmsgid = None
+        remindmsgdesc = f"{msgdesc} Reminder"
+        for m in self.listLibraryMessages(libraryId):
+            if m["description"] == remindmsgdesc:
+                remindmsgid = m["id"]
+                break
+
+        if remindmsgid is None:
+            print(f"Reminder message for {msgdesc} not found. Creating new message")
+
+            remindmsg = (
+                rf"""<p>Please complete your {msgdesc} by {duedate}."""
+                r"""<br /><br /><strong>Follow this link to the Survey: </strong>"""
+                r"""<br />${l://SurveyLink?d=Take the Survey}</p><p>Or copy and """
+                r"""paste the URL below into your internet browser:<br />"""
+                r"""${l://SurveyURL}</p><p>&nbsp;</p>"""
+            )
+
+            remindmsgid = self.createLibraryMessage(
+                libraryId,
+                remindmsgdesc,
+                remindmsg,
+                category="reminder",
+            )
+
+        return remindmsgid

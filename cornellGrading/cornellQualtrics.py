@@ -1213,6 +1213,33 @@ class cornellQualtrics:
 
         return response.json()
 
+    def updateSurveyFlow(self, surveyId, flowData):
+        """Add block to existing Survey
+
+        Args:
+            surveyId (str):
+                Survey ID string as returned by getSurveyId
+            flowData (dict):
+                Full flow definition dictionary. Must contain flow id, type, data, and
+                properties
+
+        Returns:
+            dict:
+                response json payload
+
+        ..notes::
+            See https://api.qualtrics.com/be14598374903-update-flow
+
+        """
+        baseUrl = "https://{0}{1}survey-definitions/{2}/flow".format(
+            self.dataCenter, self.qualtricsapi, surveyId
+        )
+
+        response = requests.put(baseUrl, json=flowData, headers=self.headers_put)
+        assert response.status_code == 200, "Couldn't update flow."
+
+        return response.json()
+
     def getSurveyQuotas(self, surveyId):
         """Get all quotas for a survey
 
@@ -1403,3 +1430,30 @@ class cornellQualtrics:
         assert response.status_code == 200, "Couldn't create message."
 
         return response.json()["result"]["id"]
+
+    def getLibraryId(self, libraryName):
+        """Find qualtrics library id by name
+
+        Args:
+            libraryName (str):
+                Library name
+
+        Returns:
+            str:
+                Library ID
+
+
+        """
+        # get libraryId
+        libs = self.listLibraries()["elements"]
+        for lib in libs:
+            if lib["libraryName"] == libraryName:
+                break
+        assert lib["libraryName"] == libraryName, "Library {} not found.".format(
+            libraryName
+        )
+        libraryId = lib["libraryId"]
+
+        return libraryId
+
+

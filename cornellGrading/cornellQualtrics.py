@@ -1476,7 +1476,7 @@ class cornellQualtrics:
         thanksmsgid = None
         thanksmsgdesc = f"{msgdesc} Completed"
         for m in self.listLibraryMessages(libraryId):
-            if m["description"] == msgdesc:
+            if m["description"] == thanksmsgdesc:
                 thanksmsgid = m["id"]
                 break
 

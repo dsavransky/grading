@@ -3,22 +3,22 @@ import numpy as np
 import getpass
 import keyring
 import time
-from datetime import datetime, timedelta
 import pytz
-import canvasapi
-from canvasapi import Canvas
-from canvasapi.exceptions import InvalidAccessToken
 import tempfile
 import os
 import re
 import warnings
-from cornellGrading.cornellQualtrics import cornellQualtrics
 import urllib.parse
 import subprocess
 import shutil
 import requests
 import uuid
-from cornellGrading.utils import convalllatex
+from datetime import datetime, timedelta
+import canvasapi
+from canvasapi import Canvas
+from canvasapi.exceptions import InvalidAccessToken
+from cornellGrading.cornellQualtrics import cornellQualtrics
+from cornellGrading.utils import convalllatex, readGradescopeFile
 
 try:
     from cornellGrading.pandocHTMLParser import pandocHTMLParser
@@ -2694,6 +2694,61 @@ class cornellGrading:
 
         return fightml
 
+    def bulkUploadFigures(self, imagePath, figs, imageFolder="QuizImages"):
+        """
+
+        Args:
+            imagePath (str):
+                Full path to location on disk of any image files to use in questions.
+            figs (iterable):
+                List (or other iterable) of figure names (no extensions).  All of these
+                must be in the same `imagePath`.
+            imageFolder (str):
+                Name of Canvas folder to upload images to. Defaults to 'QuizImages'. If
+                folder does not exist, it will be created as a hidden folder.
+
+        Returns:
+            None
+
+        """
+
+        # won't work if we don't have convert
+        assert shutil.which("convert"), (
+            "Cannot locate convert utility. "
+            "Please visit https://imagemagick.org/index.php "
+            "for installation instructions."
+        )
+
+        try:
+            figFolder = self.getFolder(imageFolder)
+        except AssertionError:
+            figFolder = self.createFolder(imageFolder, hidden=True)
+
+        for fig in figs:
+            pngfig = os.path.join(imagePath, f"{fig}.png")
+            if not os.path.exists(pngfig):
+                pdffig = os.path.join(imagePath, f"{fig}.pdf")
+                if not os.path.exists(pdffig):
+                    print(f"Can't find PNG or PDF for {fig}. Skipping.")
+                    continue
+                convcomm = [
+                    "convert",
+                    "-units",
+                    "PixelsPerInch",
+                    "-density",
+                    "300",
+                    pdffig,
+                    "-quality",
+                    "100",
+                    pngfig,
+                ]
+                _ = subprocess.run(
+                    convcomm,
+                    check=True,
+                    capture_output=True,
+                )
+            self.uploadFigure(pngfig, figFolder)
+
     def importPollEvScores(
         self,
         pollfile,
@@ -2811,17 +2866,8 @@ class cornellGrading:
 
         """
 
-        assert os.path.exists(datafile), f"{datafile} not found."
-
-        # read in gradescope CSV output and drop rows without submissions
-        data = pandas.read_csv(datafile)
-        data = data.loc[data["Status"] != "Missing"].reset_index(drop=True)
-
-        # add NetID column and compute late times
-        data["NetID"] = [e.split("@")[0] for e in data["Email"].values]
-        data["Lateness"] = pandas.to_timedelta(
-            data["Lateness (H:M:S)"]
-        ) / np.timedelta64(1, "h")
+        # grab data
+        data = readGradescopeFile(datafile)
 
         # check for over maximum late deadline
         if maxDaysLate is not None:
@@ -3211,3 +3257,89 @@ class cornellGrading:
                 "unlock_at": unlockat.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
             quizass.create_override(assignment_override=overridedef)
+
+    def organizeImportedAssignments(self, orgdict):
+        """Move assignments from import assignment group to other assignment groups
+        based on kewyord matches in assignment names
+
+        Args:
+            orgdict (dict):
+                Dictionary of {keyword: assignment group name} pairs. Assignment groups
+                will be created, as needed.
+
+        Returns:
+            None
+
+        """
+
+        # get all relevant assignment groups
+        imports = self.getAssignmentGroup("Imported Assignments")
+        assgrps = {}
+        for assgrp in orgdict.values():
+            assgrps[assgrp] = self.getAssignmentGroup(assgrp)
+
+        allass = self.course.get_assignments()
+        for j, ass in enumerate(allass):
+            if ass.assignment_group_id != imports.id:
+                continue
+
+            newgrpid = None
+            for namestr, assgrp in orgdict.items():
+                if namestr in ass.name:
+                    newgrpid = assgrps[assgrp].id
+                    break
+            if newgrpid is None:
+                print(f"Cannot identify group for {ass.name}")
+                continue
+
+            _ = ass.edit(assignment={"assignment_group_id": newgrpid})
+
+    def genCourseRoster(self, secregex=r"DIS(\d{3})-P"):
+        r"""Generate a course roster with names, netids and sections
+
+        Args:
+            secregex (str):
+                regex for determining section numbers. Defaults to "DIS(\d{3})-P")
+
+        Returns:
+            pandas.DataFrame:
+                DataFrame with Name, NetID, and Section columns
+
+        """
+
+        secre = re.compile(secregex)
+        secs = self.course.get_sections()
+        secids = {}
+        for s in secs:
+            tmp = secre.match(s.name)
+            if tmp is not None:
+                secnum = int(tmp.group(1))
+                secids[s.id] = secnum
+
+        students = self.course.get_users(include=["enrollments"])
+        names = []
+        sections = []
+        netids = []
+        for t in students:
+            isstudent = False
+            for e in t.enrollments:
+                if e["course_id"] == self.course.id:
+                    isstudent = e["role"] == "StudentEnrollment"
+
+            if isstudent:
+                if not hasattr(t, "login_id"):
+                    print(
+                        (
+                            f"Warning: Skipping {t.sortable_name}: "
+                            "is in the course, but not enrolled."
+                        )
+                    )
+                    continue
+                names.append(t.sortable_name)
+                netids.append(t.login_id)
+                for e in t.enrollments:
+                    if e["course_section_id"] in secids:
+                        sections.append(secids[e["course_section_id"]])
+                        break
+
+        return pandas.DataFrame({"Name": names, "NetID": netids, "Section": sections})

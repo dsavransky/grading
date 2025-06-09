@@ -1,5 +1,8 @@
 import urllib.parse
 import re
+import pandas
+import os
+import numpy as np
 
 
 def convalllatex(text):
@@ -87,3 +90,29 @@ def netid2email(netids, domain="cornell.edu"):
     """
 
     return [f"{n}@{domain}" for n in netids]
+
+
+def readGradescopeFile(datafile):
+    """Read in gradescope grade csv and return dataframe
+
+    Args:
+        datafile (str):
+            Full path to gradescope CSV output file
+
+    Returns:
+        pandas.DataFrame:
+            The data, along with a NetID column
+
+    """
+
+    assert os.path.exists(datafile), f"{datafile} not found."
+
+    data = pandas.read_csv(datafile)
+    data = data.loc[data["Status"] != "Missing"].reset_index(drop=True)
+    data["NetID"] = email2netid(data["Email"].values)
+
+    data["Lateness"] = pandas.to_timedelta(data["Lateness (H:M:S)"]) / np.timedelta64(
+        1, "h"
+    )
+
+    return data

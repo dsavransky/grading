@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 import numpy as np
 import pandas
+import pytz
 
 
 class cornellQualtrics:
@@ -1541,3 +1542,34 @@ class cornellQualtrics:
             )
 
         return remindmsgid
+
+    def gen_reminders(
+        self,
+        reminderdates,
+        distributionId,
+        libraryId,
+        remindmsgid,
+        subject,
+        replyTo="no-reply@cornell.edu",
+        fromName="A Survey Robot",
+        timezone="US/Eastern",
+    ):
+
+        # loop through all reminder dates and generate reminders
+        for jj, date in enumerate(reminderdates):
+
+            # figure out correct UTC tiem to send
+            local = pytz.timezone(timezone)
+            naive = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+            local_dt = local.localize(naive, is_dst=None)
+            sendDate = local_dt.astimezone(pytz.utc)
+
+            _ = self.createReminderDistribution(
+                distributionId,
+                libraryId,
+                remindmsgid,
+                f"{subject} Reminder {jj + 1}",
+                sendDate,
+                replyTo=replyTo,
+                fromName=fromName,
+            )

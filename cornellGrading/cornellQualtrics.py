@@ -160,6 +160,18 @@ class cornellQualtrics:
 
         return self.surveyNames
 
+    def getDirectoryId(self):
+        """Return directory id
+
+        Returns (str):
+            The directory ID
+
+        """
+        baseUrl = "https://{0}{1}directories".format(self.dataCenter, self.qualtricsapi)
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        assert response.status_code == 200, "Could not list directories."
+        return response.json()["result"]["elements"][0]["directoryId"]
+
     def getSurveyId(self, surveyname, renew=False):
         """Find qualtrics survey id by name.  Matching is exact.
 
@@ -707,10 +719,11 @@ class cornellQualtrics:
                 Full path to save location.  If None (default) uses system tmp dir
 
         Returns:
-            str:
-                Full path to directory where the survey results and all files are saved.
+            list:
+                Full paths of downloaded files.
                 The survey results will be a CSV file with a filename that is the same
-                as the survey name, except with any colons replaced with underscores.
+                as the survey name, except with any colons replaced with underscores,
+                located in the same directory as the downloaded files.
                 The files will be named as: ResponseId-FileId-fileName where ResponseId
                 and FileId match the entries in the survey results and fileName is the
                 original fileName of the upload.
@@ -745,6 +758,7 @@ class cornellQualtrics:
 
         # loop through each data export tag and download the associated file for each
         # response
+        outnames = []
         for DataExportTag in DataExportTags:
             # get all ids and filenames for current tag
             fids = surveyres[f"{DataExportTag}_Id"].values.flatten()
@@ -763,8 +777,9 @@ class cornellQualtrics:
                 outname = os.path.join(tmpdir, f"{rid}-{fid}-{fname}")
                 with open(outname, "wb") as ff:
                     ff.write(requestDownload.content)
+                outnames.append(outname)
 
-        return tmpdir
+        return outnames
 
     def exportSurvey(self, surveyId, fileFormat="csv", useLabels="true", saveDir=None):
         """Download and extract survey results

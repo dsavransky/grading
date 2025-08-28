@@ -1070,6 +1070,28 @@ class cornellQualtrics:
         response = requests.put(baseUrl, json=data, headers=self.headers_put)
         assert response.status_code == 200, "Could not activate."
 
+    def deactivateSurvey(self, surveyId):
+        """Deactivate a Survey
+
+        Args:
+            surveyId (str):
+                Survey ID string as returned by getSurveyId
+
+        Returns:
+            None
+
+        """
+        baseUrl = "https://{0}{2}surveys/{1}".format(
+            self.dataCenter, surveyId, self.qualtricsapi
+        )
+
+        data = {
+            "isActive": False,
+        }
+
+        response = requests.put(baseUrl, json=data, headers=self.headers_put)
+        assert response.status_code == 200, "Could not activate."
+
     def makeSurveyPrivate(self, surveyId):
         """Make a Survey private
 

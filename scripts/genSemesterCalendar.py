@@ -57,6 +57,7 @@ def genSemesterCalendar(
 
 def main():
     genSemesterCalendar(classdays=[0, 2, 4], outfile="lecture_dates_MWF.txt")
+    genSemesterCalendar(classdays=[0, 2], outfile="lecture_dates_MW.txt")
     genSemesterCalendar(classdays=[1, 3], outfile="lecture_dates_TTh.txt")
     genSemesterCalendar(classdays=[4], outfile="lecture_dates_F.txt")
 

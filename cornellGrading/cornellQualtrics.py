@@ -296,6 +296,61 @@ class cornellQualtrics:
 
         return response.json()["result"]["id"]
 
+    def updateMailingList(self, listName, contacts, libraryId=None):
+        """Synchronize mailing list with contents of spreadsheet/tabular data
+
+        Args:
+            listName (str):
+                Mailing list name
+            contacts (pandas.DataFrame):
+                DataFrame containing the columns: 'First Name', 'Last Name', and 'Email'
+            libraryId (str, optional):
+                Library ID. If None, will attempt to identify it automatically
+
+
+        Returns:
+            None
+
+        """
+
+        try:
+            mailingListId = self.getMailingListId(listName)
+        except AssertionError:
+            print(f"List {listName} does not exist.  Creating.")
+            mailingListId = self.genMailingList(listName, libraryId=libraryId)
+            for jj, row in contacts.iterrows():
+                self.addListContact(
+                    mailingListId, row["First Name"], row["Last Name"], row["Email"]
+                )
+                return
+
+        # get contents of mailing list
+        tmp = self.getListContacts(mailingListId)
+        listids = []
+        listemails = []
+        for el in tmp:
+            listids.append(el["id"])
+            listemails.append(el["email"])
+        listids = np.array(listids)
+        listemails = np.array(listemails)
+
+        # find missing
+        missing = list(set(contacts["Email"]) - set(listemails))
+        if len(missing) > 0:
+            tmp = contacts.loc[contacts["Email"].isin(missing)]
+            for jj, row in tmp.iterrows():
+                print(f'Adding {row["Email"]}')
+                self.addListContact(
+                    mailingListId, row["First Name"], row["Last Name"], row["Email"]
+                )
+
+        # find extraneous names
+        extra = list(set(listemails) - set(contacts["Email"]))
+        if extra:
+            for e in extra:
+                print(f"Removing {e}")
+                self.deleteListContact(mailingListId, listids[listemails == e][0])
+
     def getListContacts(self, mailingListId):
         """Get all contacts in a mailing list
 

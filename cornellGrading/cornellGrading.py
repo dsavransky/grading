@@ -2668,7 +2668,6 @@ class cornellGrading:
                 haveFile = True
                 fig = {
                     "id": file.id,
-                    "uuid": file.uuid,
                     "display_name": file.display_name,
                 }
                 break
@@ -2678,18 +2677,11 @@ class cornellGrading:
             status, fig = figFolder.upload(impath)
             assert status, f"Failed to upload {impath}."
 
-        figsrc = (
-            f"{self.canvas._Canvas__requester.original_url}/courses/"
-            f"{self.course.id}/files/{fig['id']}/preview?verifier={fig['uuid']}"
-        )
-        apisrc = (
-            f"{self.canvas._Canvas__requester.base_url}courses/"
-            f"{self.course.id}/files/{fig['id']}"
-        )
+        figsrc = f"/courses/{self.course.id}/files/{fig['id']}/preview"
 
         fightml = (
             f'<img id="{fig["id"]}" src="{figsrc}" alt="{fig["display_name"]}" '
-            f'width="600" data-api-endpoint="{apisrc}" data-api-returntype="File">'
+            f'width="600" />'
         )
 
         return fightml

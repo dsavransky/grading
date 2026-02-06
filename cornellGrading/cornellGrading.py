@@ -732,8 +732,8 @@ class cornellGrading:
         for i, s in zip(netids, scores):
             if i == i:
                 if i in self.netids:
-                    grade_data["%d" % self.ids[self.netids == i]] = {
-                        "posted_grade": "%f" % s
+                    grade_data[f"{self.ids[self.netids == i][0]}"] = {
+                        "posted_grade": f"{s}"
                     }
                 else:
                     unmatchedids.append(i)

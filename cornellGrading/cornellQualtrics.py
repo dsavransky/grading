@@ -80,6 +80,10 @@ class cornellQualtrics:
             self.listSurveys()
             print("Connected to Qualtrics.")
 
+        # set directoryId and userId
+        self.directoryId = self.getDirectoryId()
+        self.whoami()
+
     def setupHeaders(self):
         """Generate standard headers
 
@@ -104,6 +108,37 @@ class cornellQualtrics:
             "content-type": "application/json",
             "x-api-token": self.apiToken,
         }
+
+    def whoami(self):
+        """Populate userId attribute"""
+
+        baseUrl = f"https://{self.dataCenter}{self.qualtricsapi}whoami"
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+
+        self.userId = response.json()["result"]["userId"]
+
+    def expandResponse(self, response):
+        """
+
+        Args:
+            response (requests.models.Response):
+                Requests response from any relevant endpoint accessed with GET request
+
+        Returns:
+            list:
+                list of all result elements
+
+        """
+
+        out = response.json()["result"]["elements"]
+
+        while response.json()["result"]["nextPage"] is not None:
+            response = requests.get(
+                response.json()["result"]["nextPage"], headers=self.headers_tokenOnly
+            )
+            out += response.json()["result"]["elements"]
+
+        return out
 
     def listSurveys(self, baseUrl=None):
         """Grab and store all available Qualtrics surveys
@@ -214,25 +249,34 @@ class cornellQualtrics:
 
         return response
 
-    def getMailingLists(self):
+    def getMailingLists(self, includeShared=False):
         """Grab all available Qualtrics mailing lists
 
         Args:
-            None
+            includeShared (bool):
+                If True, include all mailing lists accessible to user.  If False
+                (defualt) include only those owned by user.
 
         Returns:
-            requests.models.Response:
-                response object with all mailing lists
+            list:
+                all mailing list definitions
 
         """
 
-        baseUrl = "https://{0}{1}mailinglists".format(
-            self.dataCenter,
-            self.qualtricsapi,
+        baseUrl = (
+            f"https://{self.dataCenter}{self.qualtricsapi}directories/"
+            f"{self.directoryId}/mailinglists"
         )
-        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        if includeShared:
+            response = requests.get(baseUrl, headers=self.headers_tokenOnly)
+        else:
+            response = requests.get(
+                baseUrl, headers=self.headers_tokenOnly, params={"ownerId": self.userId}
+            )
 
-        return response
+        out = self.expandResponse(response)
+
+        return out
 
     def getMailingListId(self, listName):
         """Find qualtrics mailinglist id by name.  Matching is exact.
@@ -249,9 +293,9 @@ class cornellQualtrics:
 
         res = self.getMailingLists()
         mailinglistid = None
-        for el in res.json()["result"]["elements"]:
+        for el in res:
             if el["name"] == listName:
-                mailinglistid = el["id"]
+                mailinglistid = el["mailingListId"]
                 break
         assert mailinglistid, "Couldn't find this mailing list."
 
@@ -263,8 +307,8 @@ class cornellQualtrics:
         Args:
             listName (str):
                 List name
-            libraryId (str, optional):
-                Library ID. If None, will attempt to identify it automatically
+            libraryId (str, deprecated):
+                DEPRECATED and ignored.  Left only for backwards compatibility.
 
         Returns:
             str:
@@ -272,23 +316,13 @@ class cornellQualtrics:
 
         """
 
-        # first we need to figure out what our personal library id is
-        tmp = requests.get(
-            "https://{0}{1}libraries".format(self.dataCenter, self.qualtricsapi),
-            headers=self.headers_tokenOnly,
+        data = {"name": listName}
+        baseUrl = (
+            f"https://{self.dataCenter}{self.qualtricsapi}directories/"
+            f"{self.directoryId}/mailinglists"
         )
-
-        if libraryId is None:
-            for el in tmp.json()["result"]["elements"]:
-                if "UR_" in el["libraryId"] or "URH_" in el["libraryId"]:
-                    libraryId = el["libraryId"]
-                    break
-            assert libraryId is not None, "Could not identify library id."
-
-        data = {"libraryId": libraryId, "name": listName}
-
         response = requests.post(
-            "https://{0}{1}mailinglists".format(self.dataCenter, self.qualtricsapi),
+            baseUrl,
             headers=self.headers_post,
             json=data,
         )
@@ -304,8 +338,8 @@ class cornellQualtrics:
                 Mailing list name
             contacts (pandas.DataFrame):
                 DataFrame containing the columns: 'First Name', 'Last Name', and 'Email'
-            libraryId (str, optional):
-                Library ID. If None, will attempt to identify it automatically
+            libraryId (str, dprecated):
+                DEPRECATED and ignored.  Left only for backwards compatibility.
 
 
         Returns:
@@ -367,26 +401,18 @@ class cornellQualtrics:
 
 
         """
-        response = requests.get(
-            "https://{0}{2}mailinglists/{1}/contacts".format(
-                self.dataCenter,
-                mailingListId,
-                self.qualtricsapi,
-            ),
-            headers=self.headers_tokenOnly,
+        baseUrl = (
+            f"https://{self.dataCenter}{self.qualtricsapi}directories/"
+            f"{self.directoryId}/mailinglists/{mailingListId}/contacts"
         )
+
+        response = requests.get(baseUrl, headers=self.headers_tokenOnly)
 
         assert (
             response.status_code == 200
         ), "Could not get contacts for list {}.".format(mailingListId)
 
-        out = response.json()["result"]["elements"]
-
-        while response.json()["result"]["nextPage"] is not None:
-            response = requests.get(
-                response.json()["result"]["nextPage"], headers=self.headers_tokenOnly
-            )
-            out += response.json()["result"]["elements"]
+        out = self.expandResponse(response)
 
         return out
 
@@ -417,7 +443,7 @@ class cornellQualtrics:
         for el in contacts:
             fn.append(el["firstName"])
             ln.append(el["lastName"])
-            cid.append(el["id"])
+            cid.append(el["contactLookupId"])
             email.append(el["email"])
 
         contacts = pandas.DataFrame(
@@ -453,8 +479,9 @@ class cornellQualtrics:
 
         """
 
-        baseUrl = "https://{0}{2}mailinglists/{1}/contacts".format(
-            self.dataCenter, mailingListId, self.qualtricsapi
+        baseUrl = (
+            f"https://{self.dataCenter}{self.qualtricsapi}directories/"
+            f"{self.directoryId}/mailinglists/{mailingListId}/contacts"
         )
 
         data = {
@@ -484,15 +511,12 @@ class cornellQualtrics:
 
         """
 
-        response = requests.delete(
-            "https://{0}{3}mailinglists/{1}/contacts/{2}".format(
-                self.dataCenter,
-                mailingListId,
-                contactId,
-                self.qualtricsapi,
-            ),
-            headers=self.headers_post,
+        baseUrl = (
+            f"https://{self.dataCenter}{self.qualtricsapi}directories/"
+            f"{self.directoryId}/mailinglists/{mailingListId}/contacts/{contactId}"
         )
+
+        response = requests.delete(baseUrl, headers=self.headers_post)
         assert response.status_code == 200, "Could not remove contact from list."
 
     def genDistribution(self, surveyId, mailingListId):

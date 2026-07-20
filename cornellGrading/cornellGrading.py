@@ -803,7 +803,7 @@ class cornellGrading:
         # check that this one doesn't already exist
         res = self.qualtrics.getMailingLists()
         assert self.coursename not in [
-            el["name"] for el in res.json()["result"]["elements"]
+            el["name"] for el in res
         ], "Mailing list already exists for this course."
 
         names = np.array([n.split(", ") for n in self.names])
@@ -1011,9 +1011,7 @@ class cornellGrading:
                   <p><a class="survey-link ng-binding" href="{0}" target="_blank">{0}
                   </a></p>
                   <p>Be sure to enter your correct netid or you will not receive
-                  credit.</p>""".format(
-            link
-        )
+                  credit.</p>""".format(link)
 
         _ = self.createAssignment(
             assname,
@@ -1611,9 +1609,7 @@ class cornellGrading:
                 """data-api-endpoint="{2}" data-api-returntype="File">{0}</a></p>
                     <p>Grade yourself against the rubric in the syllabus and enter your
                     scores for each problem by following the link in the comments on
-                    your original submission.</p>""".format(
-                    solfname, solurl, solepoint
-                )
+                    your original submission.</p>""".format(solfname, solurl, solepoint)
             )
 
             if injectText:

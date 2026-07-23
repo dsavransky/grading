@@ -56,8 +56,10 @@ In order to also install requirements needed push LaTeX into Canvas HTML, do: ::
 
    If your shell is zsh, you may need to add escape characters to all instances of square brackets (e.g. ``\[latex2html\]``).
 
-Canvas API Token (Required)
+Canvas API Token
 -----------------------------
+You must generate a Canvas API token in order to use the :py:class:`cornellGrading.cornellGrading` class.
+
 To generate a token, in Canvas: 
 
 #. Navigate to Account>Settings and scroll down to Approved Integrations
@@ -86,8 +88,10 @@ You can also omit the ``canvas_token_file`` input, in which case you will be pro
 
     If entering your token at the prompt, you will not see the cursor move.  Just hit Enter when done.  Windows users must type the token out.  Others can copy/paste.
 
-Qualtrics API Token (Optional)
+Qualtrics API Token
 --------------------------------
+You must generate a Qualtircs API token in order to use the :py:class:`cornellGrading.cornellQualtrics` class.
+
 On the qualtrics site:
 
 #. Navigate to: Account Settings>Qualtrics IDs
@@ -122,5 +126,39 @@ You can also omit the ``qualtrics_token_file`` input, in which case you will be 
 
 Qualtrics De-Anonymization
 -----------------------------
-By default, Cornell anonymizes all survey responses, regardless of how you have set up your survey.  To fix this, email itservicedesk@cornell.edu and request that they toggle  "View Restricted Data" to On for your qualtrics account.
+By default, Cornell anonymizes all survey responses, regardless of how you have set up your survey.  To fix this, go to https://it.cornell.edu/qualtrics. Find the link labeled 'Allow your account to view name, email, IP address, and location fields in survey reporting' - click the link and submit a ticket requesting to allow your account to view names and emails in survey responses.
+
+
+simplelists API Token
+---------------------------
+
+You must have a simplelists API token for each list you wish to manage using the tools in :py:class:`cornellGrading.simplelists` class.
+
+To generate your API token(s), create a CIT ticket requesting tokens for each account associated with each list you wish to manage. Note that you must already be a manager of these lists. You will generally receive your tokens via secure file transfer within a few business days. 
+
+Using a plain text editor, create a file called ``credential.json``.  The contents of the file should be key:value pairs where the key is the account name and the value is the API token for that account. For example:
+
+.. code-block:: json 
+
+    {
+        "EMAIL_LIST1-L-account":"CAJgeo1bepNW2bpQWPDlrnhT8hwOAZCE",
+        "EMAIL_LIST2-L-account":"CAJgeo1bepNW2bpQWPDlrnhT8hwOAZCE"
+    }
+
+.. note::
+
+    Unlike in the example, each token will be unique.  Also, note that there should **not** be a comma at the end of the final entry. 
+
+On Windows systems, this file needs to be copied into ``%APPDATA%`` directory.  Hit Win+R, type ``%appdata%``, and hit Enter.  In the explorer window that pops up, create a new directory called ``simplelists``.  Copy or move your ``credential.json`` file to this directory.
+
+On all other systems (macOS, Linux), this file needs to be in the ``.config`` directory under your home directory. In a terminal, from the directory containing your ``credential.json`` file, run:
+
+.. code-block:: bash
+
+    mkdir -p ~/.config/simplelists
+    cp credentials.json ~/.config/simplelists/
+
+.. note::
+
+    Your credentials file can be updated at any time, either to change the API tokens or to add new ones.  Just make sure that you are editing the file in the correct location for your system. 
 

@@ -62,6 +62,19 @@ class cornellGrading:
         """
 
         token = keyring.get_password("canvas_test_token1", "canvas")
+        # try to use token on disk and give user option to overwrite
+        if token is not None:
+            try:
+                canvas = Canvas(canvasurl, token)
+                canvas.get_current_user()
+            except InvalidAccessToken:
+                res = input("Token saved to keychain is invalid. Update token? [Y]/n ?")
+                if res == "n":
+                    print("Exiting")
+                else:
+                    token = None
+
+        # no token on disk or token on disk is invalid and user asked to overwrite
         if token is None:
             if canvas_token_file is None:
                 token = getpass.getpass("Enter canvas token:\n")
@@ -76,11 +89,9 @@ class cornellGrading:
                 print("Connected.  Token Saved")
             except InvalidAccessToken:
                 print("Could not connect. Token not saved.")
-        else:
-            canvas = Canvas(canvasurl, token)
-            canvas.get_current_user()
-            print("Connected to Canvas.")
+                return
 
+        print("Connected to Canvas.")
         self.canvas = canvas
 
     def listCourses(self):

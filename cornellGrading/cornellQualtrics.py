@@ -356,7 +356,7 @@ class cornellQualtrics:
                 self.addListContact(
                     mailingListId, row["First Name"], row["Last Name"], row["Email"]
                 )
-                return
+            return
 
         # get contents of mailing list
         tmp = self.getListContacts(mailingListId)

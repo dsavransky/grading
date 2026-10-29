@@ -363,7 +363,7 @@ class cornellQualtrics:
         listids = []
         listemails = []
         for el in tmp:
-            listids.append(el["id"])
+            listids.append(el["contactLookupId"])
             listemails.append(el["email"])
         listids = np.array(listids)
         listemails = np.array(listemails)

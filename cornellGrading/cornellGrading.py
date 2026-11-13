@@ -846,7 +846,7 @@ class cornellGrading:
         listids = []
         listemails = []
         for el in tmp:
-            listids.append(el["id"])
+            listids.append(el["contactId"])
             listemails.append(el["email"])
 
         names = np.array([n.split(", ") for n in self.names])

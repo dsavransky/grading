@@ -363,7 +363,7 @@ class cornellQualtrics:
         listids = []
         listemails = []
         for el in tmp:
-            listids.append(el["contactLookupId"])
+            listids.append(el["contactId"])
             listemails.append(el["email"])
         listids = np.array(listids)
         listemails = np.array(listemails)
@@ -426,10 +426,17 @@ class cornellQualtrics:
 
         Returns:
             pandas.DataFrame:
-                dataframe with all mailing list contacts
+                dataframe with all mailing list contacts.  Columns are 'First',
+                'Last', 'Email', 'contactId', and 'directoryContactId'.
 
         Notes:
-
+            Qualtrics uses two different contact identifiers.  The 'contactId'
+            column holds the mailing list lookup id (CGC_...; the API's
+            ``contactLookupId`` field), which is what
+            ``createSingleContactDistribution`` requires.  The
+            'directoryContactId' column holds the directory contact id (CID_...;
+            the API's ``contactId`` field), which is what ``deleteListContact``
+            requires.
 
         """
 
@@ -439,11 +446,13 @@ class cornellQualtrics:
         ln = []
         email = []
         cid = []
+        dcid = []
 
         for el in contacts:
             fn.append(el["firstName"])
             ln.append(el["lastName"])
             cid.append(el["contactLookupId"])
+            dcid.append(el["contactId"])
             email.append(el["email"])
 
         contacts = pandas.DataFrame(
@@ -452,6 +461,7 @@ class cornellQualtrics:
                 "Last": ln,
                 "Email": email,
                 "contactId": cid,
+                "directoryContactId": dcid,
             }
         )
 
@@ -494,19 +504,23 @@ class cornellQualtrics:
         assert response.status_code == 200, "Could not add contact to list."
 
     def deleteListContact(self, mailingListId, contactId):
-        """Add a contact to a mailing list
+        """Remove a contact from a mailing list
 
         Args:
             mailingListId (str):
                 Unique id string of mailing lists.  Get either from we interface or via
                 getMailingListId
             contactId (str):
-                Unique id string of contact to remove (as returned by getListContacts)
+                Directory contact id (CID_...) of contact to remove.  This is the
+                ``contactId`` field returned by getListContacts, or the
+                'directoryContactId' column of dumpContacts.
 
         Returns:
             None
 
         Notes:
+            Do not pass the ``contactLookupId`` (CGC_...) here.  Qualtrics returns
+            200 for that id but does not remove the contact.
 
 
         """
@@ -622,8 +636,10 @@ class cornellQualtrics:
                 Unique id string of mailing lists.  Get either from we interface or via
                 getMailingListId
             contactId (str):
-                Unique id string of contact.  Get either from we interface or via
-                getMailingList
+                Mailing list lookup id (CGC_...) of contact.  This is the
+                ``contactLookupId`` field returned by getListContacts, or the
+                'contactId' column of dumpContacts.  The directory contact id
+                (CID_...) is rejected by the API.
             subject (str):
                 Subject line
             cmsg (str):
